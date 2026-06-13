@@ -1,0 +1,33 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+*.env
+.streamlit/secrets.toml
+github-recovery-codes.txt
+*recovery-codes*.txt
+*secret*.txt
+*token*.txt
+*password*.txt
+
+# Local generated outputs
+outputs/
+config/backups/
+
+# Local IDE/system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary extracted package folders
+phase8_4_customer_access_model/
+deployment_step_10_hosted_app_launch_smoke_test/

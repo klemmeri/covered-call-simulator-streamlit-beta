@@ -1,0 +1,24 @@
+{
+  "description": "Phase 2E controlled premium-model adjustment settings.",
+  "apply_adjustments": true,
+  "adjustment_scope": "iv_only_fixed_strike",
+  "max_abs_iv_adjustment_per_run": 0.02,
+  "minimum_adjusted_iv": 0.06,
+  "maximum_adjusted_iv": 0.75,
+  "premium_low_iv_bump": 0.01,
+  "premium_high_iv_cut": -0.01,
+  "delta_low_iv_bump": 0.005,
+  "delta_high_iv_cut": -0.005,
+  "volatility_low_iv_bump": 0.01,
+  "volatility_high_iv_cut": -0.01,
+  "relationship_min_iv_gap": 0.005,
+  "scenario_relationship_adjustments": {
+    "ensure_volatile_whipsaw_has_highest_iv": true,
+    "ensure_downtrend_iv_exceeds_sideways_choppy_iv": true
+  },
+  "notes": [
+    "This is a controlled experiment. It writes adjusted outputs only and does not overwrite option_premium_scaffold.csv.",
+    "The first controlled adjustment changes implied volatility only while keeping strike fixed, so the effect can be isolated.",
+    "Volatility values are decimals. For example, 0.020 means two volatility points."
+  ]
+}

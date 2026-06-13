@@ -1,0 +1,21 @@
+{
+  "version": "Phase 2C scaffold v0.1",
+  "description": "Validation bands for the option-premium model scaffold. These are reasonableness checks, not live-market quote rules.",
+  "premium_percent_min": 0.1,
+  "premium_percent_max": 6.0,
+  "iv_min": 0.06,
+  "iv_max": 0.75,
+  "target_delta_default": 0.3,
+  "delta_tolerance": 0.06,
+  "minimum_otm_moneyness_percent": 0.0,
+  "maximum_otm_moneyness_percent": 12.0,
+  "warning_premium_percent_low": 0.25,
+  "warning_premium_percent_high": 4.0,
+  "require_positive_premium": true,
+  "require_otm_call": true,
+  "relationship_checks": {
+    "volatile_whipsaw_should_have_higher_iv_than_strong_rally": true,
+    "downtrend_should_have_higher_iv_than_sideways_choppy": true,
+    "sideways_choppy_should_not_have_lower_premium_than_strong_rally_by_more_than_percent": 35.0
+  }
+}

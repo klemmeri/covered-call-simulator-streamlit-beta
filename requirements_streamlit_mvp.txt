@@ -1,0 +1,7 @@
+# Covered Call Simulator - Streamlit MVP deployment requirements
+# This file is intentionally separate from requirements.txt until deployment is confirmed.
+
+pandas
+numpy
+matplotlib
+streamlit

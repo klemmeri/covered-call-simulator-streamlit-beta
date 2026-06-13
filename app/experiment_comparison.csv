@@ -1,0 +1,13 @@
+Experiment,Management Rule,Average Final Stock Value,Average Covered Call Value,Average Buy Hold Value,Average Outperformance,Median Outperformance,Average Missed Upside,Average Net Option Effect,Median Net Option Effect,Average Assignments,Average Option Cycles,10th Percentile Outperformance,90th Percentile Outperformance
+baseline_hold_to_expiration,hold_to_expiration,,,,,,,,,,,,
+baseline_close_at_50_percent_profit,close_at_50_percent_profit,,,,,,,,,,,,
+sideways_market_hold_to_expiration,hold_to_expiration,,,,,,,,,,,,
+sideways_market_close_at_50_percent_profit,close_at_50_percent_profit,,,,,,,,,,,,
+bullish_market_hold_to_expiration,hold_to_expiration,,,,,,,,,,,,
+bullish_market_close_at_50_percent_profit,close_at_50_percent_profit,,,,,,,,,,,,
+bearish_market_hold_to_expiration,hold_to_expiration,,,,,,,,,,,,
+bearish_market_close_at_50_percent_profit,close_at_50_percent_profit,,,,,,,,,,,,
+high_volatility_hold_to_expiration,hold_to_expiration,,,,,,,,,,,,
+high_volatility_close_at_50_percent_profit,close_at_50_percent_profit,,,,,,,,,,,,
+low_volatility_hold_to_expiration,hold_to_expiration,,,,,,,,,,,,
+low_volatility_close_at_50_percent_profit,close_at_50_percent_profit,,,,,,,,,,,,

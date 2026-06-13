@@ -1,0 +1,20 @@
+{
+  "description": "Phase 2D tuning thresholds for the premium-model scaffold.",
+  "target_delta_default": 0.3,
+  "target_delta_tolerance": 0.05,
+  "minimum_premium_pct_of_stock": 0.2,
+  "maximum_premium_pct_of_stock": 6.0,
+  "minimum_implied_volatility": 0.05,
+  "maximum_implied_volatility": 0.8,
+  "minimum_strike_distance_pct": 0.5,
+  "maximum_strike_distance_pct": 15.0,
+  "scenario_relationship_rules": {
+    "volatile_whipsaw_should_have_highest_iv": true,
+    "downtrend_iv_should_exceed_sideways_choppy_iv": true,
+    "strong_rally_iv_should_not_exceed_volatile_whipsaw_iv": true
+  },
+  "notes": [
+    "Percent thresholds use percentage points. For example, 0.20 means 0.20% of stock price.",
+    "This config drives tuning recommendations only. It does not change the pricing model yet."
+  ]
+}

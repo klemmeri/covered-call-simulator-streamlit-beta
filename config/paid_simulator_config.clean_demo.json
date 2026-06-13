@@ -1,0 +1,15 @@
+{
+  "ticker": "SPY",
+  "account_size": 600000.0,
+  "risk_tier": "Balanced",
+  "position_size_cap": 0.1,
+  "desired_contracts": 1,
+  "target_delta": 0.3,
+  "target_dte": 30,
+  "management_rule": "close_at_50_percent_profit",
+  "rolling_rule": "none",
+  "re_entry_rule": "immediate",
+  "transaction_cost": 1.0,
+  "slippage_assumption": 0.01,
+  "demo_price": 545.25
+}
