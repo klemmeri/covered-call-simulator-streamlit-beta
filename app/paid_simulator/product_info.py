@@ -1,12 +1,12 @@
 """
 product_info.py
 
-Product metadata for the Covered Call Simulator public beta.
+Product metadata for the Covered Call Strategy Stress Test public beta.
 
 This module is intentionally small and dependency-free. It provides one
 central place for the product name, version label, build label, and short
-customer-facing descriptions used by the paid simulator dashboard and
-release documentation.
+customer-facing descriptions used by the Streamlit beta app and release
+checks.
 """
 
 from __future__ import annotations
@@ -37,18 +37,17 @@ def get_product_info() -> PaidSimulatorProductInfo:
     Streamlit, command-line scripts, health checks, release checks, and docs
     generators.
     """
-
     return PaidSimulatorProductInfo(
         product_name="Covered Call Strategy Stress Test",
         product_subtitle=(
-            "A public beta stress-test app for comparing covered-call setups "
+            "A public beta tool for comparing covered-call setups "
             "across named market examples."
         ),
-        version_label="Public beta v0.1",
+        version_label="Public Beta v0.1",
         build_label="v1.0.0-rc1",
         release_stage="Beta release",
         positioning_statement=(
-            "The dashboard is designed to help a user understand the income, "
+            "The stress test is designed to help a user understand the income, "
             "risk, and upside tradeoffs of a covered-call setup before opening "
             "or comparing positions. It is a decision-support tool, not a trade "
             "recommendation engine."
@@ -57,10 +56,10 @@ def get_product_info() -> PaidSimulatorProductInfo:
             "Choose or edit a covered-call setup.",
             "Validate sizing and assumptions.",
             "Run the stress test across named market examples.",
-            "Review best, worst, and average results versus simply holding the stock.",
+            "Review best, worst, and average relative outcomes versus buy-and-hold.",
             "Inspect scenario details and decision guidance.",
-            "Export a Markdown or PDF decision memo.",
-            "Compare presets and review run history.",
+            "Open the generated scenario report.",
+            "Compare presets and review session results.",
         ),
         key_limitations=(
             "Named market examples are illustrative scenarios, not forecasts.",
@@ -74,13 +73,12 @@ def get_product_info() -> PaidSimulatorProductInfo:
 
 def get_status_lines() -> list[str]:
     """Return printable product metadata lines for command-line status output."""
-
     info = get_product_info()
     lines: list[str] = []
-    lines.append(f"Product name:       {info.product_name}")
-    lines.append(f"Subtitle:           {info.product_subtitle}")
-    lines.append(f"Version:            {info.version_label}")
-    lines.append(f"Build:              {info.build_label}")
-    lines.append(f"Release stage:      {info.release_stage}")
-    lines.append(f"Generated at:       {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"Product name: {info.product_name}")
+    lines.append(f"Subtitle: {info.product_subtitle}")
+    lines.append(f"Version: {info.version_label}")
+    lines.append(f"Build: {info.build_label}")
+    lines.append(f"Release stage: {info.release_stage}")
+    lines.append(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     return lines

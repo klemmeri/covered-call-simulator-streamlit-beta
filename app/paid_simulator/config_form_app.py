@@ -185,8 +185,8 @@ def load_product_info() -> Any:
 
     class FallbackProductInfo:
         product_name = "Covered Call Strategy Stress Test"
-        product_subtitle = "A public beta stress-test app for comparing covered-call setups across named market examples."
-        version_label = "Public beta v0.1"
+        product_subtitle = "A public beta tool for comparing covered-call setups across named market examples."
+        version_label = "Public Beta v0.1"
         build_label = "Beta release"
         release_stage = "Beta release"
         positioning_statement = (
@@ -201,7 +201,7 @@ def load_product_info() -> Any:
             "Review best, worst, and average results versus simply holding the stock.",
             "Inspect scenario details and decision guidance.",
             "Export a Markdown or PDF decision memo.",
-            "Compare presets and review run history.",
+            "Compare presets and review session results.",
         )
         key_limitations = (
             "Named market examples are illustrative scenarios, not forecasts.",
@@ -2691,7 +2691,7 @@ def show_phase2_scaffold_tab() -> None:
             """
             - This tab is visible only in Developer view.
             - Phase 2 outputs are scaffold diagnostics, not final customer-facing analytics.
-            - The stable customer-facing workflow remains the v0.1 paid simulator dashboard.
+            - The stable customer-facing workflow remains the v0.1 public beta stress-test tool.
             - Use the Phase 2 vs v0 comparison to identify where the new modeling layer agrees or disagrees with the current v0.1 simulator.
             - Do not promote Phase 2 outputs into Customer view until the pipeline, integration-readiness check, and qualitative review all pass.
             """
