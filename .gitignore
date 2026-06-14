@@ -31,3 +31,41 @@ Thumbs.db
 # Temporary extracted package folders
 phase8_4_customer_access_model/
 deployment_step_10_hosted_app_launch_smoke_test/
+
+# Local patch and repair scripts
+app/run_public_beta_*.py
+apply_public_beta_*.py
+
+# Local backup files created by repair packages
+app/paid_simulator/*_before_*.py
+*_before_*.py
+
+# Local patch notes and temporary public beta notes
+docs/public_beta_*.md
+docs/start_here_beta_tester_walkthrough.md
+README_install_beta_tester_docs.txt
+README_public_beta_legend_fix.txt
+README_v0_1_LOCAL_PROTOTYPE.md
+RESTORE_INSTRUCTIONS.md
+START_HERE_BETA_TESTERS.md
+README_BETA_TESTERS.md
+
+# Local search/scratch files
+open_behavior_search.txt
+preset_open_search.txt
+deployment_streamlit_local_launch_command.txt
+str
+None
+
+# Local scratch folders
+Description Docs/
+Edits/
+dashboard/
+data/
+book/
+experiments/
+
+# Local project planning documents not intended for repo commits
+Covered Call Simulator Website Plan.pdf
+Covered Call Simulator Workflow Notes.docx
+covered_call_simulator_project_summary.pdf
