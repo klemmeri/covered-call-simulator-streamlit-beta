@@ -3369,27 +3369,22 @@ def main() -> None:
     with st.sidebar:
         st.markdown("### Dashboard mode")
         st.caption(PRODUCT_INFO.version_label)
-        interface_mode = st.radio(
-            "Interface mode",
-            ["Customer view", "Developer view"],
-            index=0,
-            help=(
-                "Customer view shows the product workflow and hides local development tools. "
-                "Developer view shows run history, app status, and maintenance tabs."
-            ),
-        )
+
+        # Public beta lock: hosted customer-facing deployments should not expose
+        # the Developer view toggle. Developer-only tabs and local diagnostics are
+        # still present in the code, but they remain hidden because interface_mode
+        # is forced to Customer view.
+        interface_mode = "Customer view"
+        st.caption("Customer view")
+
         st.divider()
         st.markdown("**Customer workflow**")
         st.caption("1. Choose setup")
         st.caption("2. Validate and run")
         st.caption("3. Review result")
         st.caption("4. Export memo")
-        if interface_mode == "Developer view":
-            st.divider()
-            st.caption("Developer tools are visible.")
-        else:
-            st.divider()
-            st.caption("Developer-only diagnostics are hidden.")
+        st.divider()
+        st.caption("Developer-only diagnostics are hidden.")
 
     config = load_config()
 
