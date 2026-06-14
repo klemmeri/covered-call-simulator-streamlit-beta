@@ -314,6 +314,31 @@ def find_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
     return None
 
 
+def detect_scenario_column(df: pd.DataFrame | None) -> str | None:
+    """Return the scenario/name column from a result table, if present.
+
+    This small helper is used by the public-beta clarity panel. It intentionally
+    reuses the same scenario-column candidates as the rest of the dashboard so
+    the customer-facing explanation stays consistent with the displayed results.
+    """
+    if df is None or df.empty:
+        return None
+    return find_column(
+        df,
+        SCENARIO_CANDIDATES
+        + [
+            "Scenario",
+            "scenario",
+            "scenario_name",
+            "scenario_display_name",
+            "market_path",
+            "path",
+            "path_label",
+            "display_name",
+        ],
+    )
+
+
 def load_config() -> dict[str, Any]:
     if CONFIG_PATH.exists():
         try:
@@ -888,7 +913,7 @@ def show_customer_visual_summary(
 ) -> None:
     """Render customer-facing visuals that make the covered-call tradeoff obvious."""
     st.subheader("Visual summary")
-    st.caption("Three quick graphics: scenario tradeoff, payoff concept, and modeled path shapes.")
+    st.caption("Three quick graphics: scenario tradeoff, payoff concept, and illustrative modeled path shapes. The current beta uses named scenario stress paths, not a Monte Carlo distribution.")
 
     if df is None or df.empty or not summary.get("relative_col"):
         st.info("Run the simulator to display scenario results. The payoff and path illustrations below are concept graphics based on the current setup.")
@@ -899,7 +924,7 @@ def show_customer_visual_summary(
         )
         _render_visual_card(
             "Modeled market paths concept",
-            "Illustrative path shapes used to explain scenario stress testing. These are not forecasts.",
+            "Illustrative path shapes used to explain scenario stress testing. These are not forecasts and are not individual Monte Carlo runs.",
             _build_modeled_path_svg(config),
         )
         return
@@ -922,7 +947,7 @@ def show_customer_visual_summary(
 
     _render_visual_card(
         "Modeled market paths concept",
-        "A visual reminder that the dashboard is testing several market-path scenarios, not predicting which path will occur.",
+        "A visual reminder that the dashboard is testing named market-path scenarios. These lines are illustrative scenario shapes, not a Monte Carlo fan or prediction.",
         _build_modeled_path_svg(config),
     )
 
@@ -1599,283 +1624,217 @@ def show_preset_comparison() -> None:
 
 
 
+
+def _scenario_count(df: pd.DataFrame | None) -> int:
+    """Return the visible number of named scenarios in the latest result table."""
+    if df is None or df.empty:
+        return 0
+    scenario_col = detect_scenario_column(df)
+    if scenario_col:
+        return int(df[scenario_col].dropna().nunique())
+    return int(len(df))
+
+
+def show_current_beta_run_explainer(config: dict[str, Any], df: pd.DataFrame | None) -> None:
+    """Explain exactly what the current public beta run represents."""
+    ticker = str(config.get("ticker", "SPY")).upper()
+    contracts = int(float(config.get("contracts", 1) or 1))
+    dte = int(float(config.get("target_dte", config.get("days_to_expiration", 30)) or 30))
+    delta = float(config.get("target_delta", config.get("call_delta_target", 0.30)) or 0.30)
+    scenario_count = _scenario_count(df) or 5
+    share_count = contracts * 100
+
+    st.markdown("### What was run in this demo")
+    st.info(
+        "This public beta is currently a named-scenario stress test. It evaluates the same covered-call setup "
+        "across several modeled market paths. It is not yet displaying a Monte Carlo distribution of hundreds "
+        "or thousands of random paths."
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Covered-call setup", f"{contracts} contract{'s' if contracts != 1 else ''}")
+    c2.metric("Shares controlled", f"{share_count:,}")
+    c3.metric("Named paths tested", f"{scenario_count}")
+    c4.metric("Expiration horizon", f"{dte} DTE")
+
+    st.markdown(
+        f"""
+        - The demo uses **{ticker}**, about **{delta:.2f} target call delta**, and **{dte} days to expiration**.
+        - The same covered-call setup is run once through each named scenario: downtrend, sideways/choppy, volatile, moderate uptrend, and strong rally.
+        - The scenario-path graphic is a **conceptual illustration** of those path shapes, not a collection of random Monte Carlo trials.
+        - A future Monte Carlo mode should show the number of random paths, percentile outcomes, probability of beating buy-and-hold, and a distribution chart.
+        """
+    )
+
+
+def show_stress_test_explainer_panel() -> None:
+    """Explain what the scenario stress test is doing before users see the results."""
+    st.markdown("### What this stress test is doing")
+    st.info(
+        "This beta tests one covered-call setup across several deliberately different market-path scenarios. "
+        "It is not predicting which path will occur. It is asking what would happen to the same covered call "
+        "if the market went down, moved sideways, became choppy, rose moderately, or rallied strongly."
+    )
+
+    left_col, right_col = st.columns([1.05, 1])
+    with left_col:
+        st.markdown(
+            """
+            **For the clean SPY demo, the app compares one sample covered-call setup across five named scenarios:**
+
+            1. **Downtrend**
+            2. **Sideways choppy**
+            3. **Moderate uptrend**
+            4. **Volatile two-sided**
+            5. **Strong rally**
+            """
+        )
+    with right_col:
+        st.markdown(
+            """
+            **Why this matters**
+
+            The stress test shows where the covered call usually helps and where it can lag.
+
+            **The option premium can cushion flat, choppy, or declining markets, but the short call can limit upside during a strong rally.**
+            """
+        )
+
+    st.caption(
+        "Current beta note: this is a scenario stress test using named modeled paths. "
+        "A later version may add full Monte Carlo simulation with many randomized paths and probability summaries."
+    )
+
+def show_start_here_beta_tester_box() -> None:
+    """Show a short first-run guide directly inside the customer-facing app."""
+    st.markdown("### Start here for first-time beta testers")
+    st.info(
+        "Run the clean SPY demo first. Do not change any inputs until you have seen the default walkthrough."
+    )
+    step_col, purpose_col = st.columns([1.15, 1])
+    with step_col:
+        st.markdown(
+            """
+            **First run checklist**
+
+            1. In the left sidebar, click **Reset and run clean demo**.
+            2. Stay on **Overview** and scroll to **Visual summary**.
+            3. Look at the scenario tradeoff chart and payoff concept chart.
+            4. Open **Latest results** for the detailed interpretation.
+            5. Open **Report** to see the printable summary.
+            6. Open **Help & assumptions** to review what the simulator does and does not claim.
+            """
+        )
+    with purpose_col:
+        st.markdown(
+            """
+            **What you are testing**
+
+            The first test asks whether the app clearly shows the covered-call tradeoff: option premium can cushion flat or declining markets, while the short call can limit upside in a strong rally.
+
+            Current beta note: this first walkthrough uses named scenario paths. It is not yet showing a Monte Carlo distribution of many random trials.
+
+            After the walkthrough, note what was clear, what was confusing, and what feature you expected but did not see.
+            """
+        )
+
+
 def show_overview_dashboard(config: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
     """
-    Show a compact executive dashboard for the current paid-simulator state.
+    Show the customer landing page.
 
-    This tab is intentionally read-only. It gives the user one place to see
-    whether the current configuration is valid, what the latest simulation says,
-    what preset currently looks best, and where to go next.
+    The Overview tab is intentionally different from Latest results:
+    - Overview explains the workflow and shows a visual, executive-level readout.
+    - Latest results contains the detailed metrics, guidance, scenario cards, and export controls.
     """
     st.subheader("Overview dashboard")
-    st.caption("High-level status for the current configuration and latest simulator outputs.")
+    st.caption("Start here. This page gives the big-picture tradeoff and tells the user where to go next.")
 
     st.markdown(f"**{PRODUCT_INFO.version_label}**  ")
     st.caption(f"{PRODUCT_INFO.release_stage} | {PRODUCT_INFO.build_label}")
     st.info(PRODUCT_INFO.positioning_statement)
 
-    with st.expander("Primary workflow", expanded=True):
+    show_start_here_beta_tester_box()
+
+    show_stress_test_explainer_panel()
+
+    with st.expander("Primary workflow", expanded=False):
         for step_number, step_text in enumerate(PRODUCT_INFO.primary_workflow, start=1):
             st.write(f"{step_number}. {step_text}")
 
     df = load_scenario_results()
     summary = summarize_results(df) if df is not None else {}
+    has_results = bool(df is not None and summary.get("relative_col"))
 
-    status = "REVIEW BEFORE USE"
-    recommendations: list[str] = ["Run the simulator from the Setup & run tab."]
-    interpretation = "No latest simulator result is available yet."
-    if df is not None and summary.get("relative_col"):
-        status, recommendations = build_decision_guidance(config, summary, errors, warnings)
-        interpretation = build_interpretation(summary)
+    st.markdown("### Current status")
+    status_col, ticker_col, result_col, report_col = st.columns(4)
+    with status_col:
+        if errors:
+            st.error("Configuration: blocked")
+        elif warnings:
+            st.warning("Configuration: review")
+        else:
+            st.success("Configuration: valid")
+    with ticker_col:
+        st.metric("Ticker", str(config.get("ticker", "SPY")).upper())
+    with result_col:
+        if has_results:
+            st.success("Latest result: available")
+        else:
+            st.info("Latest result: not run")
+    with report_col:
+        if REPORT_PATH.exists():
+            st.success("Report: found")
+        else:
+            st.info("Report: not found")
+
+    show_current_beta_run_explainer(config, df)
 
     show_customer_visual_summary(config, df, summary, expanded=True)
 
-    status_col, config_col, report_col = st.columns(3)
-    with status_col:
-        if errors:
-            st.error("Configuration status: blocked")
-        elif warnings:
-            st.warning("Configuration status: review")
-        else:
-            st.success("Configuration status: valid")
-    with config_col:
-        st.metric("Ticker", str(config.get("ticker", "SPY")).upper())
-    with report_col:
-        if REPORT_PATH.exists():
-            st.success("HTML report: found")
-        else:
-            st.info("HTML report: not found")
-
-    if df is None or not summary.get("relative_col"):
-        st.info("No usable latest result is available yet. Go to Setup & run, save the configuration, then run the simulator.")
+    st.markdown("### What this means at a glance")
+    if not has_results:
+        st.info(
+            "No latest result is available yet. Go to Setup & run, use the clean demo or enter a setup, "
+            "then run the simulator to populate the charts and results."
+        )
     else:
-        metric1, metric2, metric3, metric4 = st.columns(4)
-        metric1.metric("Market paths", summary.get("row_count", 0))
-        metric2.metric("Best result", signed_currency(summary.get("best_value", 0)), summary.get("best_scenario", ""))
-        metric3.metric("Worst result", signed_currency(summary.get("worst_value", 0)), summary.get("worst_scenario", ""))
-        metric4.metric("Average result", signed_currency(summary.get("average_value", 0)))
+        best_scenario = summary.get("best_scenario", "best scenario")
+        worst_scenario = summary.get("worst_scenario", "worst scenario")
+        best_value = signed_currency(summary.get("best_value", 0))
+        worst_value = signed_currency(summary.get("worst_value", 0))
+        average_value = signed_currency(summary.get("average_value", 0))
+        st.markdown(
+            f"""
+            - The covered call helped most in **{best_scenario}** ({best_value} versus buy-and-hold).
+            - The covered call lagged most in **{worst_scenario}** ({worst_value} versus buy-and-hold).
+            - The average relative result across the modeled paths was **{average_value}**.
+            """
+        )
+        st.caption(
+            "For the detailed interpretation, decision guidance, scenario cards, and memo export, open the Latest results tab."
+        )
 
-        st.info("Current interpretation\n\n" + safe_markdown_text(interpretation))
-        if status == "OPEN / ACCEPTABLE DEMO":
-            st.success(f"Decision guidance: {status}")
-        elif status == "REVIEW BEFORE USE":
-            st.warning(f"Decision guidance: {status}")
-        else:
-            st.error(f"Decision guidance: {status}")
-        with st.expander("Why this guidance?", expanded=False):
-            for item in recommendations:
-                st.write(f"- {item}")
-
-    st.markdown("---")
-    st.subheader("Recommended next action")
+    st.markdown("### Recommended next action")
     if errors:
         st.error("Fix the blocking configuration errors in Setup & run before running the simulator.")
-    elif df is None:
-        st.info("Run the simulator to create the first latest-results summary.")
+    elif not has_results:
+        st.info("Open Setup & run and run the clean demo or your own setup.")
     elif summary.get("average_value") is not None and float(summary.get("average_value", 0)) < 0:
-        st.warning("Review the upside tradeoff. The latest covered-call setup lags buy-and-hold on average across the modeled paths.")
+        st.warning("Review the upside tradeoff in Latest results. The latest covered-call setup lags buy-and-hold on average across the modeled paths.")
     else:
-        st.success("Review the scenario cards and export a decision memo if this setup is being documented.")
-
-    if PRESET_COMPARISON_PATH.exists():
-        try:
-            preset_df = pd.read_csv(PRESET_COMPARISON_PATH)
-            if not preset_df.empty:
-                batch_col = find_column(preset_df, ["batch_timestamp"])
-                avg_col = find_column(preset_df, ["average_relative_result"])
-                preset_col = find_column(preset_df, ["preset_name"])
-                latest = preset_df
-                if batch_col:
-                    latest_batch = preset_df[batch_col].iloc[-1]
-                    latest = preset_df[preset_df[batch_col] == latest_batch].copy()
-                if avg_col and preset_col and not latest.empty:
-                    vals = pd.to_numeric(latest[avg_col], errors="coerce")
-                    best_idx = vals.idxmax()
-                    best_name = str(latest.loc[best_idx, preset_col])
-                    best_value = vals.loc[best_idx]
-                    st.success(f"Recommended preset from latest comparison: {best_name} ({signed_currency(best_value)} average relative result).")
-        except Exception as exc:
-            st.caption(f"Preset comparison summary unavailable: {exc}")
+        st.success("Open Latest results to inspect the scenario cards and export a decision memo.")
 
     quick1, quick2, quick3 = st.columns(3)
     with quick1:
-        st.write("**Next tab:** Setup & run")
-        st.caption("Edit inputs, save config, run simulator, and run the health check.")
+        st.write("**Setup & run**")
+        st.caption("Edit inputs, apply presets, and run the simulator.")
     with quick2:
-        st.write("**Next tab:** Latest results")
-        st.caption("Review interpretation, scenario cards, and export memos.")
+        st.write("**Latest results**")
+        st.caption("Detailed result metrics, interpretation, scenario cards, and export tools.")
     with quick3:
-        st.write("**Next tab:** Preset comparison")
-        st.caption("Compare conservative, balanced, aggressive, and shorter-term setups.")
-
-
-def show_help_section() -> None:
-    st.subheader("Help & assumptions")
-    st.caption("Plain-English reference for the paid covered-call simulator.")
-
-    st.markdown(f"### {PRODUCT_INFO.product_name}")
-    st.write(PRODUCT_INFO.product_subtitle)
-    st.caption(f"{PRODUCT_INFO.version_label} | {PRODUCT_INFO.release_stage} | {PRODUCT_INFO.build_label}")
-
-    st.markdown("### What this simulator is doing")
-    st.write(PRODUCT_INFO.positioning_statement)
-
-    st.write(
-        "The paid simulator compares a selected covered-call setup against buy-and-hold across several modeled market paths. "
-        "It is designed to show the tradeoff created by the short call: income and downside/sideways cushion in exchange for "
-        "reduced participation during strong rallies."
-    )
-
-    st.write(
-        "The simulator should be treated as a scenario-analysis tool, not a prediction engine. It does not claim to identify "
-        "the future market regime."
-    )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        ### Key inputs
-
-        **Ticker** — The underlying symbol used for the demo setup.
-
-        **Account size ($)** — The account value used to estimate position-size limits.
-
-        **Max position size** — The maximum percentage of the account allowed in the covered-call stock position.
-
-        **Contracts** — The number of covered-call contracts requested. One contract generally represents 100 shares.
-
-        **Call delta target** — Approximate option delta used to select the short call. Lower delta usually means less premium
-        and less upside cap. Higher delta usually means more premium and more upside cap.
-
-        **Days to expiration** — Target option maturity for the short call.
-        """)
-    with col2:
-        st.markdown("""
-        ### Output terms
-
-        **Relative result** — Covered-call result minus buy-and-hold result. Positive means the covered call did better in that
-        scenario. Negative means buy-and-hold did better.
-
-        **Best relative result** — The market path where the covered call helped most versus buy-and-hold.
-
-        **Worst relative result** — The market path where the covered call lagged buy-and-hold the most.
-
-        **Average relative result** — The average relative result across all modeled paths. This is not a forecast; it is a
-        summary of the selected scenario set.
-
-        **Decision guidance** — A rule-based interpretation of the scenario results and configuration checks.
-        """)
-
-    with st.expander("How to use the control panel", expanded=True):
-        st.markdown("""
-        1. Use **Reset to clean demo** when preparing for a customer walkthrough.
-        2. Start on **Overview** to see the current status.
-        3. Go to **Setup & run** to choose a preset or edit inputs.
-        4. Click **Save config** before relying on a setup.
-        5. Click **Run simulator** to regenerate results.
-        6. Go to **Latest results** to review the decision summary and scenario cards.
-        7. Export a Markdown or PDF memo when you want a customer-facing record of the analysis.
-        8. Use **Preset comparison** to compare conservative, balanced, aggressive, and shorter-term assumptions.
-        """)
-
-    with st.expander("Covered-call interpretation guide", expanded=False):
-        st.markdown("""
-        A covered call usually performs best relative to buy-and-hold when the underlying is flat, choppy, or declining modestly.
-        The option premium can cushion the stock result.
-
-        A covered call usually performs worst relative to buy-and-hold during a strong rally. The short call limits upside
-        participation, so the strategy can trail the stock even though it may still make money in absolute terms.
-
-        This is why the app focuses on relative performance versus buy-and-hold rather than only the covered-call profit or loss.
-        """)
-
-    with st.expander("Important limitations", expanded=False):
-        for limitation in PRODUCT_INFO.key_limitations:
-            st.write(f"- {limitation}")
-        st.write("- Option pricing is simplified for demonstration and product-design purposes.")
-        st.write("- A positive scenario result does not guarantee a good live trade.")
-        st.write("- A negative relative result does not necessarily mean the trade loses money; it may mean it underperforms buy-and-hold.")
-        st.write("- The decision guidance is rule-based and should be reviewed rather than followed mechanically.")
-
-    st.info("Commercial framing: the simulator helps users understand tradeoffs before opening a covered call. It should not be marketed as a regime detector or profit guarantee.")
-
-
-
-def show_maintenance_tab() -> None:
-    """Show safe local maintenance tools for generated control-panel files."""
-    st.subheader("Maintenance")
-    st.caption("Reset demo inputs or clear generated local dashboard history. These actions do not change the simulator engine.")
-
-    st.markdown("### Reset current configuration")
-    st.write("Use this when you want to return the form to the clean paid-demo setup.")
-    if st.button("Reset config to clean demo"):
-        save_config(PRESETS["Clean demo - balanced, 1 contract"].copy())
-        st.session_state["active_preset"] = "Clean demo - balanced, 1 contract"
-        st.success("Config reset to: Clean demo - balanced, 1 contract. Rerun or refresh the app to reload the fields.")
-
-    st.divider()
-    st.markdown("### Clear generated dashboard history")
-    st.write("These buttons remove local CSV history files created by the Streamlit control panel. They do not remove the main HTML report.")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Run history**")
-        if RUN_HISTORY_PATH.exists():
-            st.code(str(RUN_HISTORY_PATH))
-            if st.button("Clear run history CSV"):
-                RUN_HISTORY_PATH.unlink(missing_ok=True)
-                st.success("Run history CSV cleared.")
-        else:
-            st.info("No run history CSV found.")
-
-    with col2:
-        st.markdown("**Preset comparison history**")
-        if PRESET_COMPARISON_PATH.exists():
-            st.code(str(PRESET_COMPARISON_PATH))
-            if st.button("Clear preset comparison CSV"):
-                PRESET_COMPARISON_PATH.unlink(missing_ok=True)
-                st.success("Preset comparison CSV cleared.")
-        else:
-            st.info("No preset comparison CSV found.")
-
-    st.divider()
-    st.markdown("### Open project folders")
-    folder_col1, folder_col2, folder_col3 = st.columns(3)
-    with folder_col1:
-        if st.button("Open project root"):
-            if not open_path_with_windows(PROJECT_ROOT):
-                st.warning(f"Could not open: {PROJECT_ROOT}")
-    with folder_col2:
-        if st.button("Open paid simulator outputs"):
-            output_dir = PROJECT_ROOT / "outputs" / "tables" / "paid_simulator"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            if not open_path_with_windows(output_dir):
-                st.warning(f"Could not open: {output_dir}")
-    with folder_col3:
-        if st.button("Open decision memo folder"):
-            MEMO_DIR.mkdir(parents=True, exist_ok=True)
-            if not open_path_with_windows(MEMO_DIR):
-                st.warning(f"Could not open: {MEMO_DIR}")
-
-    with st.expander("What these maintenance tools do", expanded=False):
-        st.markdown("""
-        - **Reset config to clean demo** writes the clean demo preset to `config/paid_simulator_config.json`.
-        - **Clear run history CSV** deletes the local dashboard run-history file.
-        - **Clear preset comparison CSV** deletes the local preset-comparison history file.
-        - These actions do not delete simulator source code, reports, charts, or configuration backups.
-        """)
-
-
-def load_csv_safely(path: Path) -> pd.DataFrame | None:
-    """Load a CSV for dashboard display without interrupting the app."""
-    if not path.exists():
-        return None
-    try:
-        return pd.read_csv(path)
-    except Exception as exc:
-        st.warning(f"Could not read {path.name}: {exc}")
-        return None
-
+        st.write("**Report**")
+        st.caption("Customer-facing summary suitable for saving or printing.")
 
 def show_phase2_file_status() -> None:
     """Show file availability for Phase 2 scaffold outputs and runners."""
@@ -2020,6 +1979,99 @@ def show_report_section() -> None:
                     st.warning("Could not open the report folder directly.")
     else:
         st.info("HTML report not found yet. Run the paid simulator first.")
+
+
+
+def show_help_section() -> None:
+    st.subheader("Help & assumptions")
+    st.caption("Plain-English reference for the paid covered-call simulator.")
+
+    st.markdown(f"### {PRODUCT_INFO.product_name}")
+    st.write(PRODUCT_INFO.product_subtitle)
+    st.caption(f"{PRODUCT_INFO.version_label} | {PRODUCT_INFO.release_stage} | {PRODUCT_INFO.build_label}")
+
+    st.markdown("### What this simulator is doing")
+    st.write(PRODUCT_INFO.positioning_statement)
+
+    st.write(
+        "The paid simulator compares a selected covered-call setup against buy-and-hold across several modeled market paths. "
+        "It is designed to show the tradeoff created by the short call: income and downside/sideways cushion in exchange for "
+        "reduced participation during strong rallies."
+    )
+
+    st.write(
+        "The simulator should be treated as a scenario-analysis tool, not a prediction engine. It does not claim to identify "
+        "the future market regime."
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        ### Key inputs
+
+        **Ticker** — The underlying symbol used for the demo setup.
+
+        **Account size ($)** — The account value used to estimate position-size limits.
+
+        **Max position size** — The maximum percentage of the account allowed in the covered-call stock position.
+
+        **Contracts** — The number of covered-call contracts requested. One contract generally represents 100 shares.
+
+        **Call delta target** — Approximate option delta used to select the short call. Lower delta usually means less premium
+        and less upside cap. Higher delta usually means more premium and more upside cap.
+
+        **Days to expiration** — Target option maturity for the short call.
+        """)
+    with col2:
+        st.markdown("""
+        ### Output terms
+
+        **Relative result** — Covered-call result minus buy-and-hold result. Positive means the covered call did better in that
+        scenario. Negative means buy-and-hold did better.
+
+        **Best relative result** — The market path where the covered call helped most versus buy-and-hold.
+
+        **Worst relative result** — The market path where the covered call lagged buy-and-hold the most.
+
+        **Average relative result** — The average relative result across all modeled paths. This is not a forecast; it is a
+        summary of the selected scenario set.
+
+        **Decision guidance** — A rule-based interpretation of the scenario results and configuration checks.
+        """)
+
+    with st.expander("How to use the control panel", expanded=True):
+        st.markdown("""
+        1. Use **Reset to clean demo** when preparing for a customer walkthrough.
+        2. Start on **Overview** to see the current status.
+        3. Go to **Setup & run** to choose a preset or edit inputs.
+        4. Click **Save config** before relying on a setup.
+        5. Click **Run simulator** to regenerate results.
+        6. Go to **Latest results** to review the decision summary and scenario cards.
+        7. Export a Markdown or PDF memo when you want a customer-facing record of the analysis.
+        8. Use **Preset comparison** to compare conservative, balanced, aggressive, and shorter-term assumptions.
+        """)
+
+    with st.expander("Covered-call interpretation guide", expanded=False):
+        st.markdown("""
+        A covered call usually performs best relative to buy-and-hold when the underlying is flat, choppy, or declining modestly.
+        The option premium can cushion the stock result.
+
+        A covered call usually performs worst relative to buy-and-hold during a strong rally. The short call limits upside
+        participation, so the strategy can trail the stock even though it may still make money in absolute terms.
+
+        This is why the app focuses on relative performance versus buy-and-hold rather than only the covered-call profit or loss.
+        """)
+
+    with st.expander("Important limitations", expanded=False):
+        for limitation in PRODUCT_INFO.key_limitations:
+            st.write(f"- {limitation}")
+        st.write("- Option pricing is simplified for demonstration and product-design purposes.")
+        st.write("- A positive scenario result does not guarantee a good live trade.")
+        st.write("- A negative relative result does not necessarily mean the trade loses money; it may mean it underperforms buy-and-hold.")
+        st.write("- The decision guidance is rule-based and should be reviewed rather than followed mechanically.")
+
+    st.info("Commercial framing: the simulator helps users understand tradeoffs before opening a covered call. It should not be marketed as a regime detector or profit guarantee.")
+
 
 
 
