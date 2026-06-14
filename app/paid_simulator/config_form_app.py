@@ -185,26 +185,26 @@ def load_product_info() -> Any:
 
     class FallbackProductInfo:
         product_name = "Covered Call Strategy Stress Test"
-        product_subtitle = "A paid-simulator dashboard for comparing covered-call setups across modeled market paths."
-        version_label = "Paid Simulator Dashboard v0.1"
+        product_subtitle = "A public beta stress-test app for comparing covered-call setups across named market examples."
+        version_label = "Public beta v0.1"
         build_label = "Beta release"
         release_stage = "Beta release"
         positioning_statement = (
-            "The dashboard is designed to help a user understand the income, risk, "
+            "This app is designed to help you understand the income, risk, "
             "and upside tradeoffs of a covered-call setup before opening or comparing positions. "
             "It is a decision-support tool, not a trade recommendation engine."
         )
         primary_workflow = (
             "Choose or edit a covered-call setup.",
             "Validate sizing and assumptions.",
-            "Run the simulator across modeled market paths.",
-            "Review best, worst, and average relative outcomes versus buy-and-hold.",
+            "Run the stress test across named market examples.",
+            "Review best, worst, and average results versus simply holding the stock.",
             "Inspect scenario details and decision guidance.",
             "Export a Markdown or PDF decision memo.",
             "Compare presets and review run history.",
         )
         key_limitations = (
-            "Named scenarios are modeled scenarios, not forecasts.",
+            "Named market examples are illustrative scenarios, not forecasts.",
             "Regime detection, if later added, should be treated as probabilistic guidance, not an oracle.",
             "Covered calls may lag sharply in strong rallies because upside can be capped.",
             "Historical or simulated outcomes do not guarantee future performance.",
@@ -284,7 +284,11 @@ BUY_HOLD_CANDIDATES = ["buy_hold_p_l", "buy_and_hold_p_l", "buy_hold_result", "b
 COVERED_CALL_CANDIDATES = ["covered_call_p_l", "covered_call_result", "covered_call"]
 
 
-st.set_page_config(page_title=PRODUCT_INFO.product_name, layout="wide")
+st.set_page_config(
+    page_title=PRODUCT_INFO.product_name,
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 st.markdown(
     """
@@ -1287,7 +1291,6 @@ def build_decision_memo(config: dict[str, Any], summary: dict[str, Any], status:
     lines.append("")
     lines.append("## Latest results summary")
     if "average_value" in summary:
-        lines.append(f"- Detected relative-result column: {summary.get('relative_col')}")
         lines.append(f"- Named scenarios tested: {summary.get('row_count')}")
         lines.append(f"- Best relative result: {signed_currency(summary.get('best_value'))} ({summary.get('best_scenario')})")
         lines.append(f"- Worst relative result: {signed_currency(summary.get('worst_value'))} ({summary.get('worst_scenario')})")
@@ -1568,7 +1571,8 @@ def show_latest_results(config: dict[str, Any], errors: list[str], warnings: lis
     col3.metric("Worst relative result", signed_currency(summary.get("worst_value", 0)), summary.get("worst_scenario", ""))
     col4.metric("Average result versus simply holding the stock", signed_currency(summary.get("average_value", 0)))
 
-    st.caption(f"Detected relative-result column: {relative_col}")
+    with st.expander("Technical details", expanded=False):
+        st.caption(f"Relative-result column used internally: {relative_col}")
 
     interpretation = build_interpretation(summary)
     st.info("Plain-English interpretation\n\n" + safe_markdown_text(interpretation))
@@ -2005,10 +2009,10 @@ def show_covered_call_challenge(config: dict[str, Any]) -> None:
         return
 
     st.markdown("### Current challenge")
-    target_scenario = st.selectbox("Target market regime", scenarios, key="challenge_target_scenario")
+    target_scenario = st.selectbox("Target market scenario", scenarios, key="challenge_target_scenario")
     player_name = _clean_challenge_player_name(
         st.text_input(
-            "Name for the leaderboard",
+            "Name for the scoreboards",
             value=st.session_state.get("challenge_player_name", "Beta tester"),
             help="Use a nickname or initials. Do not enter sensitive personal information.",
             key="challenge_player_name",
@@ -2047,7 +2051,7 @@ def show_covered_call_challenge(config: dict[str, Any]) -> None:
     st.markdown("### Market scenario scoreboards")
     st.caption(
         "Scores are ranked highest to lowest within each market scenario for this browser session. "
-        "A future version can store a shared public leaderboard using a database."
+        "A future version can store shared public scoreboards using a database."
     )
 
     if "challenge_leaderboard" not in st.session_state:
@@ -2097,11 +2101,11 @@ def show_covered_call_challenge(config: dict[str, Any]) -> None:
                     "Best score": signed_currency(best_score) if best_score is not None and pd.notna(best_score) else "N/A",
                 }
             )
-        st.markdown("#### Scoreboard summary by regime")
+        st.markdown("#### Scoreboard summary by scenario")
         st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
 
-        selected_board = st.selectbox("View ranked scores for market scenario", ["All regimes"] + scenarios, key="challenge_board_filter")
-        if selected_board == "All regimes":
+        selected_board = st.selectbox("View ranked scores for market scenario", ["All scenarios"] + scenarios, key="challenge_board_filter")
+        if selected_board == "All scenarios":
             ranked_df = board_df.copy()
         else:
             ranked_df = board_df.loc[board_df["target_scenario"] == selected_board].copy()
@@ -2123,7 +2127,7 @@ def show_covered_call_challenge(config: dict[str, Any]) -> None:
     st.warning(
         "This is a beta learning game, not an optimizer or trade recommendation. Optimizing for one named scenario may make the setup worse in another scenario. "
         "The current beta evaluates one covered-call setup over one option cycle and does not roll ITM calls. "
-        "The leaderboard is currently stored only in this browser session; a shared public leaderboard would require a database or other persistent storage."
+        "The scoreboards are currently stored only in this browser session; shared public scoreboards would require a database or other persistent storage."
     )
 
     with st.expander("Raw result row for selected scenario", expanded=False):
@@ -2475,8 +2479,8 @@ def show_overview_dashboard(config: dict[str, Any], errors: list[str], warnings:
     - Overview explains the workflow and shows a visual, executive-level readout.
     - Latest results contains the detailed metrics, guidance, scenario cards, and export controls.
     """
-    st.subheader("Overview dashboard")
-    st.caption("Start here. This page gives the big-picture tradeoff and tells the user where to go next.")
+    st.subheader("Overview")
+    st.caption("Start here. This page shows the big-picture tradeoff and suggests where to go next.")
 
     st.markdown(f"**{PRODUCT_INFO.version_label}**  ")
     st.caption(f"{PRODUCT_INFO.release_stage} | {PRODUCT_INFO.build_label}")
@@ -2793,16 +2797,10 @@ def show_report_section() -> None:
     # Do not inject a second HTML block from the dashboard.
     if REPORT_PATH.exists():
         st.success("HTML report found.")
-        st.code(str(REPORT_PATH))
-        col13, col14 = st.columns(2)
-        with col13:
-            if st.button("Open report"):
-                if not open_path_with_windows(REPORT_PATH):
-                    st.warning("Could not open the report directly. Copy the path above into File Explorer.")
-        with col14:
-            if st.button("Open report folder"):
-                if not open_path_with_windows(REPORT_PATH.parent):
-                    st.warning("Could not open the report folder directly.")
+        st.caption("A scenario-comparison HTML report has been generated.")
+        if st.button("Open report"):
+            if not open_path_with_windows(REPORT_PATH):
+                st.warning("Could not open the report directly from this environment.")
     else:
         st.info("HTML report not found yet. Run the paid simulator first.")
 
@@ -2810,7 +2808,7 @@ def show_report_section() -> None:
 
 def show_help_section() -> None:
     st.subheader("Help & assumptions")
-    st.caption("Plain-English reference for the paid covered-call simulator.")
+    st.caption("Plain-English reference for the covered-call stress test.")
 
     st.markdown(f"### {PRODUCT_INFO.product_name}")
     st.write(PRODUCT_INFO.product_subtitle)
@@ -2820,7 +2818,7 @@ def show_help_section() -> None:
     st.write(PRODUCT_INFO.positioning_statement)
 
     st.write(
-        "The paid simulator compares a selected covered-call setup against buy-and-hold across several modeled market paths. "
+        "The stress test compares a selected covered-call setup against simply holding the stock across several named market examples. "
         "It is designed to show the tradeoff created by the short call: income and downside/sideways cushion in exchange for "
         "reduced participation during strong rallies."
     )
@@ -4684,14 +4682,14 @@ def main() -> None:
         st.caption("3. Review result")
         st.caption("4. Export memo")
         st.divider()
-        st.caption("Developer-only diagnostics are hidden.")
+        st.caption("Advanced diagnostics are hidden.")
 
     config = load_config()
 
     with st.sidebar:
         st.divider()
         st.markdown("### Demo controls")
-        st.caption("Use these before a customer demo, screenshot, or walkthrough.")
+        st.caption("Use these to restore the clean demo.")
         if st.button("Reset to clean demo"):
             ok, message = reset_to_clean_demo(run_after_reset=False)
             st.session_state["dashboard_notice"] = message
@@ -4759,8 +4757,8 @@ def main() -> None:
             st.caption("Use the Setup & run tab to test a configuration, then review Latest results and export a memo.")
 
     with tabs["Setup & run"]:
-        st.subheader("Customer demo reset")
-        st.caption("Restore the standard SPY one-contract demo before a walkthrough or screenshot.")
+        st.subheader("Start with a clean demo")
+        st.caption("Restore the standard SPY one-contract demo before testing or taking a screenshot.")
         demo_col1, demo_col2 = st.columns(2)
         with demo_col1:
             if st.button("Reset setup to clean demo", key="setup_reset_clean_demo"):
