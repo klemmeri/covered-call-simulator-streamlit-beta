@@ -1,7 +1,7 @@
 """
 product_info.py
 
-Product metadata for the Covered Call Simulator paid dashboard.
+Product metadata for the Covered Call Simulator public beta.
 
 This module is intentionally small and dependency-free. It provides one
 central place for the product name, version label, build label, and short
@@ -17,7 +17,7 @@ from datetime import datetime
 
 @dataclass(frozen=True)
 class PaidSimulatorProductInfo:
-    """Customer-facing product metadata for the paid simulator dashboard."""
+    """Customer-facing product metadata for the public beta app."""
 
     product_name: str
     product_subtitle: str
@@ -31,7 +31,7 @@ class PaidSimulatorProductInfo:
 
 def get_product_info() -> PaidSimulatorProductInfo:
     """
-    Return the current paid simulator product metadata.
+    Return the current public beta product metadata.
 
     Keep this function dependency-free so it can be imported safely by
     Streamlit, command-line scripts, health checks, release checks, and docs
@@ -41,10 +41,10 @@ def get_product_info() -> PaidSimulatorProductInfo:
     return PaidSimulatorProductInfo(
         product_name="Covered Call Strategy Stress Test",
         product_subtitle=(
-            "A paid-simulator dashboard for comparing covered-call setups "
-            "across modeled market paths."
+            "A public beta stress-test app for comparing covered-call setups "
+            "across named market examples."
         ),
-        version_label="Paid Simulator Dashboard v0.1",
+        version_label="Public beta v0.1",
         build_label="v1.0.0-rc1",
         release_stage="Beta release",
         positioning_statement=(
@@ -56,14 +56,14 @@ def get_product_info() -> PaidSimulatorProductInfo:
         primary_workflow=(
             "Choose or edit a covered-call setup.",
             "Validate sizing and assumptions.",
-            "Run the simulator across modeled market paths.",
-            "Review best, worst, and average relative outcomes versus buy-and-hold.",
+            "Run the stress test across named market examples.",
+            "Review best, worst, and average results versus simply holding the stock.",
             "Inspect scenario details and decision guidance.",
             "Export a Markdown or PDF decision memo.",
             "Compare presets and review run history.",
         ),
         key_limitations=(
-            "Market paths are modeled scenarios, not forecasts.",
+            "Named market examples are illustrative scenarios, not forecasts.",
             "Regime detection, if later added, should be treated as probabilistic guidance, not an oracle.",
             "Covered calls may lag sharply in strong rallies because upside can be capped.",
             "Historical or simulated outcomes do not guarantee future performance.",
