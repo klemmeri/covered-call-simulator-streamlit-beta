@@ -937,6 +937,7 @@ def _build_payoff_concept_svg(config: dict[str, Any]) -> str:
 
 def _build_modeled_path_svg(config: dict[str, Any]) -> str:
     """Build an illustrative scenario price-path SVG."""
+    # PUBLIC_BETA_MODELED_PATH_LEGEND_BELOW_CHART_READY
     import math
 
     start_price = float(config.get("demo_price", DEFAULT_CONFIG["demo_price"]) or DEFAULT_CONFIG["demo_price"])
@@ -963,6 +964,7 @@ def _build_modeled_path_svg(config: dict[str, Any]) -> str:
         ("Volatile Two-Sided", "#9333ea"),
         ("Strong Rally", "#dc2626"),
     ]
+
     series = {name: [path_value(name, i) for i in xs] for name, _ in scenarios}
     all_values = [v for values in series.values() for v in values]
     min_y, max_y = min(all_values), max(all_values)
@@ -971,11 +973,11 @@ def _build_modeled_path_svg(config: dict[str, Any]) -> str:
         max_y *= 1.01
 
     width = 920
-    height = 360
+    height = 430
     plot_left = 72
     plot_right = 850
-    plot_top = 38
-    plot_bottom = 300
+    plot_top = 58
+    plot_bottom = 285
 
     def sx(i: int) -> float:
         return plot_left + i / steps * (plot_right - plot_left)
@@ -983,32 +985,49 @@ def _build_modeled_path_svg(config: dict[str, Any]) -> str:
     def sy(y: float) -> float:
         return plot_bottom - (y - min_y) / (max_y - min_y) * (plot_bottom - plot_top)
 
+    zero_y = sy(start_price)
+    middle_y = (plot_top + plot_bottom) / 2
+
     rows = [
-        f'<svg viewBox="0 0 {width} {height}" width="100%" height="auto" role="img" aria-label="Modeled price path concept chart">',
-        '<rect x="0" y="0" width="920" height="360" rx="12" fill="#f8fafc"/>',
+        f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Illustrative modeled market path shapes">',
+        f'<rect x="0" y="0" width="{width}" height="{height}" rx="14" fill="#f8fafc"/>',
         f'<line x1="{plot_left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" stroke="#cbd5e1" stroke-width="1"/>',
         f'<line x1="{plot_left}" y1="{plot_top}" x2="{plot_left}" y2="{plot_bottom}" stroke="#cbd5e1" stroke-width="1"/>',
-        f'<line x1="{plot_left}" y1="{sy(start_price):.1f}" x2="{plot_right}" y2="{sy(start_price):.1f}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>',
-        f'<text x="{plot_left}" y="24" font-size="13" fill="#52606d">Starting price {_safe_html(currency(start_price))}; illustrative {dte}-DTE scenario shapes</text>',
+        f'<line x1="{plot_left}" y1="{zero_y:.1f}" x2="{plot_right}" y2="{zero_y:.1f}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 5"/>',
+        f'<text x="{plot_left}" y="30" font-size="13" fill="#334155">Starting price {_safe_html(currency(start_price))}; illustrative {dte}-DTE scenario shapes</text>',
     ]
-    legend_x = 610
-    legend_y = 48
-    for idx, (name, color) in enumerate(scenarios):
+
+    for name, color in scenarios:
         pts = _svg_polyline_points([(sx(i), sy(v)) for i, v in enumerate(series[name])])
-        rows.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="3"/>')
-        ly = legend_y + idx * 22
-        rows.append(f'<rect x="{legend_x}" y="{ly}" width="18" height="5" rx="2" fill="{color}"/>')
-        rows.append(f'<text x="{legend_x+26}" y="{ly+7}" font-size="13" fill="#102a43">{_safe_html(name)}</text>')
+        rows.append(
+            f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+
+    legend_x = 120
+    legend_y = 338
+    legend_gap_x = 250
+    legend_gap_y = 26
+    for idx, (name, color) in enumerate(scenarios):
+        col = idx % 3
+        row = idx // 3
+        lx = legend_x + col * legend_gap_x
+        ly = legend_y + row * legend_gap_y
+        rows.append(
+            f'<line x1="{lx}" y1="{ly - 4}" x2="{lx + 18}" y2="{ly - 4}" stroke="{color}" stroke-width="5" stroke-linecap="round"/>'
+        )
+        rows.append(
+            f'<text x="{lx + 30}" y="{ly}" font-size="13" fill="#0f172a">{_safe_html(name)}</text>'
+        )
+
     rows.extend(
         [
-            f'<text x="{plot_left}" y="330" font-size="13" fill="#486581">Start</text>',
-            f'<text x="{plot_right}" y="330" text-anchor="end" font-size="13" fill="#486581">Expiration horizon</text>',
-            '<text x="18" y="42" font-size="13" fill="#486581" transform="rotate(-90 18,42)">Stock price</text>',
+            f'<text x="{plot_left}" y="{plot_bottom + 32}" font-size="12" fill="#334155">Start</text>',
+            f'<text x="{plot_right - 110}" y="{plot_bottom + 32}" font-size="12" fill="#334155">Expiration horizon</text>',
+            f'<text x="22" y="{middle_y:.1f}" font-size="12" fill="#334155" transform="rotate(-90 22 {middle_y:.1f})">Stock price</text>',
             '</svg>',
         ]
     )
     return "".join(rows)
-
 
 def show_customer_visual_summary(
     config: dict[str, Any],
