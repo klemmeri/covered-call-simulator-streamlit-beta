@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+# PUBLIC_BETA_RUNNER_FUTURE_IMPORT_REPAIR_READY
+import os
 """
 run_paid_simulator.py
 
@@ -23,7 +27,6 @@ The actual paid-simulator logic remains in:
     app/paid_simulator
 """
 
-from __future__ import annotations
 
 import subprocess
 import sys
@@ -79,7 +82,8 @@ def open_report_in_browser(report_path: Path) -> None:
     print("Opening scenario comparison report in browser:")
     print(report_path)
 
-    webbrowser.open(report_path.as_uri())
+    if os.environ.get("COVERED_CALL_SIMULATOR_SUPPRESS_REPORT_OPEN") != "1":
+        webbrowser.open(report_path.as_uri())
 
 
 def run_paid_simulator(open_report: bool = True) -> None:

@@ -133,7 +133,7 @@ def format_config_text(value: Any, default: str = "N/A") -> str:
 
 def classify_result(value: Any) -> str:
     """
-    Classify covered-call result versus buy-and-hold.
+    Classify covered-call result versus simply holding the stock.
     """
     number = safe_float(value)
 
@@ -211,7 +211,7 @@ def build_result_badge(label: str) -> str:
 
 def get_best_row(rows: list[dict[str, object]]) -> dict[str, object] | None:
     """
-    Return the row with the highest covered-call minus buy-and-hold value.
+    Return the row with the highest covered-call minus simply holding the stock value.
     """
     if not rows:
         return None
@@ -224,7 +224,7 @@ def get_best_row(rows: list[dict[str, object]]) -> dict[str, object] | None:
 
 def get_worst_row(rows: list[dict[str, object]]) -> dict[str, object] | None:
     """
-    Return the row with the lowest covered-call minus buy-and-hold value.
+    Return the row with the lowest covered-call minus simply holding the stock value.
     """
     if not rows:
         return None
@@ -297,9 +297,9 @@ def build_plain_english_takeaway_section(
         <p>
             In this setup, the covered call helps most in the
             <strong>{escape(best_scenario)}</strong> path
-            ({escape(best_value)} versus buy-and-hold) and lags most in the
+            ({escape(best_value)} versus simply holding the stock) and falls behind most in the
             <strong>{escape(worst_scenario)}</strong> path
-            ({escape(worst_value)} versus buy-and-hold).
+            ({escape(worst_value)} versus simply holding the stock).
         </p>
         <p>
             This is consistent with a covered-call profile: option premium can
@@ -337,7 +337,7 @@ def build_decision_box_section(
         signal = "Decision signal: Sizing rule passed"
         reason = (
             "The requested contract count fits within the selected "
-            "position-size cap. The stress-test results can be interpreted "
+            "maximum account amount used. The stress-test results can be interpreted "
             "without a sizing-rule violation."
         )
         css_class = "decision-box-pass"
@@ -353,7 +353,7 @@ def build_decision_box_section(
     detail = (
         f"Requested contracts: {desired_contracts} | "
         f"Maximum contracts allowed: {max_contracts_allowed} | "
-        f"Position-size cap: {position_size_cap}"
+        f"Maximum account amount used: {position_size_cap}"
     )
 
     return f"""
@@ -404,8 +404,8 @@ def build_next_action_section(
         )
         detail = (
             f"In this run, the covered call helped most in {best_scenario} "
-            f"and lagged most in {worst_scenario} ({worst_value} versus "
-            "buy-and-hold)."
+            f"and fell behind most in {worst_scenario} ({worst_value} versus "
+            "simply holding the stock)."
         )
         css_class = "next-action-pass"
     else:
@@ -438,7 +438,30 @@ def build_covered_call_profile_section() -> str:
     """
     return """
     <div class="section">
-        <h2>Covered-Call Profile</h2>
+
+        <!-- PUBLIC_BETA_SINGLE_NEXT_STEPS_START -->
+        <section class="card public-beta-next-steps" style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;padding:20px;margin:22px 0;">
+            <h2 style="margin-top:0;">What to do next</h2>
+            <p>
+                You have reviewed the stress-test report for the current covered-call example.
+                The next step is to see whether a different setup improves the result.
+            </p>
+            <ol>
+                <li><strong>Return to the app and open Challenge.</strong> Pick a market example to test.</li>
+                <li><strong>Change one input at a time.</strong> Try call delta, days to expiration, covered-call style, or contract count.</li>
+                <li><strong>Run the stress test again.</strong> Compare whether the new setup improves or worsens the result.</li>
+                <li><strong>Record the result.</strong> Use a nickname and compare results on the results board for that market example.</li>
+                <li><strong>Review Help &amp; assumptions.</strong> Confirm the current beta assumption: one option cycle, no automatic rolls, and no market prediction.</li>
+                <li><strong>Send feedback.</strong> What was clear, what was confusing, and what feature did you expect but did not see?</li>
+            </ol>
+            <p style="margin-bottom:0;">
+                Beta note: this is a stress test using named market examples. A later version may add Monte Carlo simulation,
+                animated ticker-style covered-call evolution, and persistent public results boards.
+            </p>
+        </section>
+        <!-- PUBLIC_BETA_SINGLE_NEXT_STEPS_END -->
+
+<h2>Covered-Call Profile</h2>
         <div class="profile-grid">
             <div class="profile-item">
                 <div class="profile-title">Primary benefit</div>
@@ -458,11 +481,11 @@ def build_covered_call_profile_section() -> str:
             </div>
             <div class="profile-item">
                 <div class="profile-title">Weakest fit</div>
-                <p>Usually lags buy-and-hold when the stock rallies strongly above the call strike.</p>
+                <p>Usually falls behind simply holding the stock when the stock rallies strongly above the call strike.</p>
             </div>
             <div class="profile-item">
                 <div class="profile-title">Sizing focus</div>
-                <p>Contract count should stay inside the selected position-size cap before considering execution.</p>
+                <p>Contract count should stay inside the selected maximum account amount used before considering execution.</p>
             </div>
         </div>
     </div>
@@ -498,7 +521,7 @@ def build_strategy_setup_section(
             build_setup_item("Ticker", ticker),
             build_setup_item("Management rule", management_rule),
             build_setup_item("Target delta", target_delta),
-            build_setup_item("Target DTE", target_dte),
+            build_setup_item("Target days to expiration", target_dte),
             build_setup_item("Strike selection", strike_selection_method),
             build_setup_item("Rolling rule", rolling_rule),
             build_setup_item("Re-entry rule", reentry_rule),
@@ -518,7 +541,7 @@ def build_strategy_setup_section(
         <p class="note">
             These are the active paid-simulator inputs used to generate this
             stress test. Changing any of these values may change the relative
-            covered-call result versus buy-and-hold.
+            covered-call result versus simply holding the stock.
         </p>
     </div>
 """
@@ -543,7 +566,7 @@ def build_methodology_assumptions_section(
 
     assumption_items = "".join(
         [
-            build_setup_item("Path type", "Modeled market paths"),
+            build_setup_item("Path type", "Modeled market examples"),
             build_setup_item("Data source", data_source),
             build_setup_item("Simulation mode", mode),
             build_setup_item("Management rule", management_rule),
@@ -559,8 +582,8 @@ def build_methodology_assumptions_section(
             {assumption_items}
         </div>
         <p class="note">
-            This stress test applies the same covered-call setup to several
-            modeled market paths. The goal is to isolate the strategy behavior
+            This stress test applies the same covered-call example to several
+            modeled market examples. The goal is to isolate the strategy behavior
             across different price environments, not to forecast which path will
             occur.
         </p>
@@ -644,7 +667,7 @@ def build_sizing_warning(row: dict[str, object]) -> str:
             <div class="warning-title">Sizing warning</div>
             <p>
                 The requested number of contracts exceeds the selected
-                position-size cap. The simulation is shown for analysis, but
+                maximum account amount used. The simulation is shown for analysis, but
                 this contract count is not tradable under the current sizing rule.
             </p>
             <div class="warning-detail">
@@ -652,7 +675,7 @@ def build_sizing_warning(row: dict[str, object]) -> str:
                 &nbsp;|&nbsp;
                 Maximum contracts allowed: {escape(str(max_contracts_allowed))}
                 &nbsp;|&nbsp;
-                Position-size cap: {escape(position_size_cap)}
+                Maximum account amount used: {escape(position_size_cap)}
             </div>
         </div>
 """
@@ -685,12 +708,12 @@ def build_position_sizing_section(
             build_metric_card(
                 "Maximum contracts allowed",
                 str(row.get("max_contracts_allowed", "N/A")),
-                "Based on account size and position-size cap.",
+                "Based on account size and maximum account amount used.",
             ),
             build_metric_card(
-                "Position-size cap",
+                "Maximum account amount used",
                 format_decimal_percent(row.get("position_size_cap")),
-                "Maximum target allocation to one covered-call position.",
+                "Maximum target allocation to one covered-call example.",
             ),
             build_metric_card(
                 "Desired position value",
@@ -700,7 +723,7 @@ def build_position_sizing_section(
             build_metric_card(
                 "Allowed position value",
                 format_money(row.get("allowed_position_value")),
-                "Account size multiplied by the position-size cap.",
+                "Account size multiplied by the maximum account amount used.",
             ),
             build_metric_card(
                 "Stock value per contract",
@@ -722,13 +745,13 @@ def build_position_sizing_section(
 
     return f"""
     <div class="section">
-        <h2>Position Sizing</h2>
+        <h2>How much of the account is used</h2>
         {sizing_warning}
         <div class="metrics">
             {metric_cards}
         </div>
         <p class="note">
-            Position sizing is based on the selected account size, ticker price,
+            How much of the account is used is based on the selected account size, ticker price,
             desired contracts, and per-position cap. A result of "passes screen"
             means the requested contract count fits inside the selected cap.
             It does not mean the trade is recommended.
@@ -744,12 +767,12 @@ def build_position_sizing_section(
 
 def explain_relative_difference(row: dict[str, object]) -> str:
     """
-    Explain why the covered-call result differed from buy-and-hold.
+    Explain why the covered-call result differed from simply holding the stock.
     """
     difference = safe_float(row.get("covered_call_minus_buy_hold"))
 
     if abs(difference) <= 25.0:
-        return "Nearly matched buy-and-hold"
+        return "Nearly matched simply holding the stock"
 
     if difference > 0:
         return "Premium helped more than upside was limited"
@@ -761,7 +784,7 @@ def build_buy_hold_difference_section(
     rows: list[dict[str, object]],
 ) -> str:
     """
-    Build a user-facing section explaining what changed versus buy-and-hold.
+    Build a user-facing section explaining what changed versus simply holding the stock.
     """
     if not rows:
         return ""
@@ -866,7 +889,7 @@ def build_bar_chart_svg(
 
     elements.append(
         f'<text x="{zero_x:.1f}" y="20" text-anchor="middle" '
-        'font-size="12" fill="#64748b">Buy-and-hold parity</text>'
+        'font-size="12" fill="#64748b">Same result as simply holding the stock</text>'
     )
 
     for index, row in enumerate(rows):
@@ -909,9 +932,9 @@ def build_bar_chart_svg(
 
     return (
         '<div class="chart-card">'
-        '<div class="chart-title">Covered-call result versus buy-and-hold</div>'
+        '<div class="chart-title">Covered-call result versus simply holding the stock</div>'
         '<div class="chart-subtitle">'
-        'Positive values mean the covered-call strategy finished ahead of buy-and-hold.'
+        'Positive values mean the covered-call strategy finished ahead of simply holding the stock.'
         '</div>'
         + "".join(elements)
         + "</div>"
@@ -926,30 +949,30 @@ def build_result_label_guide_section() -> str:
     <div class="section">
         <h2>How to Interpret the Scenario Labels</h2>
         <p class="note">
-            The labels summarize how the covered-call setup performed relative
-            to buy-and-hold in each modeled market path. They are descriptive
+            The labels summarize how the covered-call example performed relative
+            to simply holding the stock in each modeled market path. They are descriptive
             labels for this stress test, not trade recommendations.
         </p>
         <div class="label-guide-grid">
             <div class="label-guide-item">
                 <span class="result-badge badge-best">Best environment</span>
-                <p>The path where the covered call helped most versus buy-and-hold.</p>
+                <p>The path where the covered call helped most versus simply holding the stock.</p>
             </div>
             <div class="label-guide-item">
                 <span class="result-badge badge-worst">Worst environment</span>
-                <p>The path where the covered call lagged buy-and-hold by the most.</p>
+                <p>The path where the covered call fell behind simply holding the stock by the most.</p>
             </div>
             <div class="label-guide-item">
                 <span class="result-badge badge-neutral">Near break-even</span>
-                <p>The covered call and buy-and-hold finished very close together.</p>
+                <p>The covered call and simply holding the stock finished very close together.</p>
             </div>
             <div class="label-guide-item">
                 <span class="result-badge badge-helpful">Helpful environment</span>
-                <p>The covered call finished ahead of buy-and-hold, but was not the best path.</p>
+                <p>The covered call finished ahead of simply holding the stock, but was not the best path.</p>
             </div>
             <div class="label-guide-item">
                 <span class="result-badge badge-lagging">Lagging environment</span>
-                <p>The covered call trailed buy-and-hold, usually because upside was capped.</p>
+                <p>The covered call trailed simply holding the stock, usually because upside was capped.</p>
             </div>
         </div>
     </div>
@@ -1013,10 +1036,10 @@ def build_comparison_table(
         "<th>Path return</th>"
         "<th>Final stock price</th>"
         "<th>Covered-call equity</th>"
-        "<th>Buy-and-hold equity</th>"
+        "<th>Simply holding the stock equity</th>"
         "<th>Difference</th>"
         "<th>Covered-call P/L</th>"
-        "<th>Buy-and-hold P/L</th>"
+        "<th>Simply holding the stock P/L</th>"
         "<th>Result</th>"
         "</tr>"
         "</thead>"
@@ -1104,17 +1127,17 @@ def build_scenario_comparison_html_report(
     metric_cards = "".join(
         [
             build_metric_card(
-                "Market paths tested",
+                "Named market examples tested",
                 str(len(rows)),
-                "Number of modeled paths in this stress test.",
+                "The same covered-call example was tested across named market examples.",
             ),
             build_metric_card(
-                "Best covered-call relative result",
+                "Best covered-call covered call minus simply holding the stock",
                 best_value,
                 best_scenario,
             ),
             build_metric_card(
-                "Worst covered-call relative result",
+                "Worst covered-call covered call minus simply holding the stock",
                 worst_value,
                 worst_scenario,
             ),
@@ -1642,7 +1665,7 @@ def build_scenario_comparison_html_report(
         <h1>Covered Call Strategy Stress Test</h1>
         <p class="subtitle">
             Generated: {escape(generated_timestamp)}<br>
-            This report compares the same covered-call setup across several
+            This report compares the same covered-call example across several
             modeled market-path scenarios.
         </p>
     </div>
@@ -1697,7 +1720,7 @@ def build_scenario_comparison_html_report(
         <h2>How to Read This Stress Test</h2>
         <p class="note">
             This report isolates how the selected covered-call configuration
-            behaves across different market paths. Covered calls tend to help
+            behaves across different market examples. Covered calls tend to help
             when the stock falls or remains contained, and tend to lag when the
             stock rallies strongly above the short-call strike.
         </p>

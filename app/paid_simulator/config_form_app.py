@@ -1,3 +1,13 @@
+
+# PUBLIC_BETA_REPORT_DUPLICATE_SOURCE_FIX_READY
+
+# PUBLIC_BETA_PRESET_NEGATIVE_BEST_WORDING_READY
+
+# PUBLIC_BETA_SUPPRESS_PRESET_REPORT_POPUPS_READY
+
+# PUBLIC_BETA_PRESET_COMPARISON_CHECK_REPAIR_READY
+
+# PUBLIC_BETA_PRESET_COMPARISON_PLAIN_LANGUAGE_READY
 """
 Paid simulator Streamlit control panel.
 
@@ -194,7 +204,7 @@ def load_product_info() -> Any:
             "Compare presets and review run history.",
         )
         key_limitations = (
-            "Market paths are modeled scenarios, not forecasts.",
+            "Named scenarios are modeled scenarios, not forecasts.",
             "Regime detection, if later added, should be treated as probabilistic guidance, not an oracle.",
             "Covered calls may lag sharply in strong rallies because upside can be capped.",
             "Historical or simulated outcomes do not guarantee future performance.",
@@ -290,6 +300,97 @@ st.markdown(
         border-radius: 0.65rem;
         padding: 0.7rem 0.9rem;
     }
+
+    /* Stronger tab navigation divider and active-tab indicator for customer polish. */
+    div[data-testid="stTabs"] div[data-baseweb="tab-list"] {
+        border-bottom: 2px solid #cbd5e1 !important;
+        gap: 0.25rem;
+        margin-bottom: 1.15rem;
+    }
+    div[data-testid="stTabs"] button[role="tab"] {
+        padding: 0.65rem 0.9rem 0.75rem 0.9rem !important;
+        border-bottom: 3px solid transparent !important;
+        color: #334155 !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"] p {
+        font-size: 0.96rem !important;
+        font-weight: 500 !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        border-bottom: 4px solid #ef4444 !important;
+        color: #dc2626 !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p {
+        font-weight: 750 !important;
+        color: #dc2626 !important;
+    }
+    div[data-testid="stTabs"] div[data-baseweb="tab-highlight"] {
+        background-color: #ef4444 !important;
+        height: 4px !important;
+        border-radius: 999px !important;
+    }
+    .beta-hero-panel {
+        border: 1px solid #dbeafe;
+        background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+        border-radius: 18px;
+        padding: 1.15rem 1.25rem;
+        margin: 1rem 0 1.1rem 0;
+    }
+    .beta-hero-kicker {
+        color: #1d4ed8;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+    }
+    .beta-hero-title {
+        color: #102a43;
+        font-size: 1.35rem;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+    .beta-hero-body {
+        color: #334e68;
+        font-size: 1rem;
+        line-height: 1.55;
+        margin: 0;
+    }
+    .beta-card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin: 0.75rem 0 1.0rem 0;
+    }
+    .beta-card {
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 0.95rem 1.0rem;
+        min-height: 145px;
+    }
+    .beta-card-title {
+        color: #102a43;
+        font-size: 1.0rem;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+    .beta-card-text {
+        color: #52606d;
+        font-size: 0.92rem;
+        line-height: 1.48;
+        margin: 0;
+    }
+    .beta-future-list {
+        color: #334e68;
+        font-size: 0.92rem;
+        line-height: 1.55;
+        margin: 0.35rem 0 0 1.0rem;
+        padding: 0;
+    }
+    @media (max-width: 900px) {
+        .beta-card-grid { grid-template-columns: 1fr; }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -368,15 +469,20 @@ def save_config(config: dict[str, Any]) -> Path | None:
     return backup_path
 
 
-def run_python_script(script_path: Path) -> tuple[int, str]:
+def run_python_script(script_path: Path, extra_env: dict[str, str] | None = None) -> tuple[int, str]:
     if not script_path.exists():
         return 1, f"Script not found: {script_path}"
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
+
     completed = subprocess.run(
         [sys.executable, str(script_path)],
         cwd=str(PROJECT_ROOT),
         text=True,
         capture_output=True,
         check=False,
+        env=env,
     )
     output = (completed.stdout or "")
     if completed.stderr:
@@ -1163,10 +1269,10 @@ def build_decision_memo(config: dict[str, Any], summary: dict[str, Any], status:
     lines.append("## Latest results summary")
     if "average_value" in summary:
         lines.append(f"- Detected relative-result column: {summary.get('relative_col')}")
-        lines.append(f"- Market paths tested: {summary.get('row_count')}")
+        lines.append(f"- Named scenarios tested: {summary.get('row_count')}")
         lines.append(f"- Best relative result: {signed_currency(summary.get('best_value'))} ({summary.get('best_scenario')})")
         lines.append(f"- Worst relative result: {signed_currency(summary.get('worst_value'))} ({summary.get('worst_scenario')})")
-        lines.append(f"- Average relative result: {signed_currency(summary.get('average_value'))}")
+        lines.append(f"- Average result versus simply holding the stock: {signed_currency(summary.get('average_value'))}")
     else:
         lines.append("- Results summary was not available.")
     lines.append("")
@@ -1374,6 +1480,51 @@ def save_decision_memo_pdf(config: dict[str, Any], summary: dict[str, Any], stat
     return pdf_path
 
 
+
+def show_latest_results_next_steps(summary: dict[str, Any], status: str) -> None:
+    """Show a clear next-step panel after a beta tester reads Latest results."""
+    average_value = summary.get("average_value")
+    if average_value is None:
+        average_text = "The app could not summarize the average result yet."
+    else:
+        average_text = (
+            "The clean demo favored the covered call on average."
+            if float(average_value) >= 0
+            else "The clean demo lagged buy-and-hold on average, which is common when upside is capped in rally scenarios."
+        )
+
+    st.markdown("### What to do next")
+    st.info(
+        "You have completed the first stress-test run. "
+        + average_text
+        + " Use the tabs above to continue the beta walkthrough."
+    )
+
+    next_col1, next_col2, next_col3 = st.columns(3)
+    with next_col1:
+        st.markdown("**1. Try the Challenge**")
+        st.write(
+            "Open **Challenge** to pick a target market scenario, adjust the setup, "
+            "and try to improve the score."
+        )
+    with next_col2:
+        st.markdown("**2. Review the Report**")
+        st.write(
+            "Open **Report** to see the customer-readable summary that explains the setup, "
+            "tradeoff, and result."
+        )
+    with next_col3:
+        st.markdown("**3. Check Help**")
+        st.write(
+            "Open **Help & assumptions** if terms like delta, DTE, assignment, "
+            "one option cycle, or scenario stress test are unclear."
+        )
+
+    st.caption(
+        "Suggested beta feedback: Was the result clear? Did the graphics help? "
+        "Could you tell what to do next without asking for instructions?"
+    )
+
 def show_latest_results(config: dict[str, Any], errors: list[str], warnings: list[str]) -> tuple[dict[str, Any], pd.DataFrame | None, str, list[str], str]:
     st.subheader("Latest results summary")
     df = load_scenario_results()
@@ -1393,10 +1544,10 @@ def show_latest_results(config: dict[str, Any], errors: list[str], warnings: lis
         return summary, df, "REVIEW BEFORE USE", ["The result column could not be detected."], "The scenario table was loaded, but the relative-result column was not detected."
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Market paths tested", summary.get("row_count", 0))
+    col1.metric("Named scenarios tested", summary.get("row_count", 0))
     col2.metric("Best relative result", signed_currency(summary.get("best_value", 0)), summary.get("best_scenario", ""))
     col3.metric("Worst relative result", signed_currency(summary.get("worst_value", 0)), summary.get("worst_scenario", ""))
-    col4.metric("Average relative result", signed_currency(summary.get("average_value", 0)))
+    col4.metric("Average result versus simply holding the stock", signed_currency(summary.get("average_value", 0)))
 
     st.caption(f"Detected relative-result column: {relative_col}")
 
@@ -1413,6 +1564,8 @@ def show_latest_results(config: dict[str, Any], errors: list[str], warnings: lis
 
     for rec in recommendations:
         st.write(f"- {rec}")
+
+    show_latest_results_next_steps(summary, status)
 
     show_customer_visual_summary(config, df, summary, expanded=True)
 
@@ -1476,6 +1629,490 @@ def show_latest_results(config: dict[str, Any], errors: list[str], warnings: lis
 
     return summary, df, status, recommendations, interpretation
 
+
+def _get_challenge_score_row(df: pd.DataFrame, summary: dict[str, Any], target_scenario: str) -> tuple[float | None, pd.Series | None, str | None]:
+    """Return the current challenge score for a selected scenario."""
+    if df is None or df.empty:
+        return None, None, None
+    relative_col = summary.get("relative_col")
+    scenario_col = summary.get("scenario_col") or detect_scenario_column(df)
+    if not relative_col or relative_col not in df.columns:
+        return None, None, scenario_col
+
+    if scenario_col and scenario_col in df.columns:
+        scenario_values = df[scenario_col].astype(str)
+        match = df.loc[scenario_values.str.lower() == str(target_scenario).lower()].copy()
+        if match.empty:
+            match = df.loc[scenario_values.str.contains(str(target_scenario), case=False, regex=False, na=False)].copy()
+    else:
+        match = pd.DataFrame()
+
+    if match.empty:
+        return None, None, scenario_col
+
+    row = match.iloc[0]
+    score = pd.to_numeric(pd.Series([row[relative_col]]), errors="coerce").iloc[0]
+    if pd.isna(score):
+        return None, row, scenario_col
+    return float(score), row, scenario_col
+
+
+def _challenge_config_snapshot(config: dict[str, Any]) -> dict[str, Any]:
+    """Capture the user-facing setup fields for challenge scoring."""
+    return {
+        "ticker": str(config.get("ticker", "SPY")).upper(),
+        "contracts": int(config.get("desired_contracts", 1)),
+        "delta": float(config.get("target_delta", 0.30)),
+        "dte": int(config.get("target_dte", 30)),
+        "risk_tier": str(config.get("risk_tier", "Balanced")),
+        "stock_price": float(config.get("demo_price", 545.25)),
+        "position_cap": float(config.get("position_size_cap", 0.10)),
+    }
+
+
+def _clean_challenge_player_name(raw_name: str) -> str:
+    """Return a short display name for the challenge leaderboard."""
+    cleaned = " ".join(str(raw_name or "").strip().split())
+    if not cleaned:
+        return "Anonymous tester"
+    return cleaned[:40]
+
+
+def _estimate_position_capacity(account_size: float, stock_price: float, position_size_cap: float) -> tuple[float, int, int]:
+    """Estimate capped stock dollars, whole shares, and covered-call contracts."""
+    try:
+        account_value = max(float(account_size or 0), 0.0)
+        price = max(float(stock_price or 0), 0.0)
+        cap = min(max(float(position_size_cap or 0), 0.0), 1.0)
+    except (TypeError, ValueError):
+        return 0.0, 0, 0
+
+    capped_dollars = account_value * cap
+    if price <= 0:
+        return capped_dollars, 0, 0
+    whole_shares = int(capped_dollars // price)
+    whole_contracts = int(whole_shares // 100)
+    return capped_dollars, whole_shares, whole_contracts
+
+
+def _render_position_size_explainer(account_size: float, stock_price: float, position_size_cap: float) -> None:
+    """Explain max position size in shares and covered-call contracts."""
+    capped_dollars, whole_shares, whole_contracts = _estimate_position_capacity(account_size, stock_price, position_size_cap)
+    price_text = f"${stock_price:,.2f}" if float(stock_price or 0) > 0 else "the selected stock price"
+    st.caption(
+        "Max position size limits the stock/ETF dollars used for covered calls. "
+        f"With a ${float(account_size or 0):,.0f} account and a {float(position_size_cap or 0):.0%} cap, "
+        f"the allowed stock exposure is about ${capped_dollars:,.0f}. At {price_text} per share, "
+        f"that supports about {whole_shares:,} shares, or {whole_contracts:,} full covered-call "
+        f"contract{'s' if whole_contracts != 1 else ''}."
+    )
+
+
+def _render_itm_no_roll_explainer() -> None:
+    """Explain the current beta's ITM / no-roll assumption."""
+    st.info(
+        "If the short call goes in the money during a scenario, this beta does not automatically roll it. "
+        "The result reflects the capped-upside / assignment-style behavior of one covered-call cycle: "
+        "the premium is kept, but gains above the strike are limited compared with buy-and-hold."
+    )
+
+
+def _format_challenge_board(board_df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare a display-friendly leaderboard table."""
+    if board_df.empty:
+        return board_df
+
+    display_df = board_df.copy()
+    display_df = display_df.sort_values(
+        ["target_scenario", "score"],
+        ascending=[True, False],
+        na_position="last",
+    ).reset_index(drop=True)
+    display_df["rank_in_regime"] = display_df.groupby("target_scenario")["score"].rank(
+        method="first",
+        ascending=False,
+    ).astype(int)
+
+    ordered_cols = [
+        "target_scenario",
+        "rank_in_regime",
+        "player_name",
+        "score",
+        "ticker",
+        "contracts",
+        "delta",
+        "dte",
+        "risk_tier",
+        "time",
+        "average_relative_result",
+        "worst_relative_result",
+    ]
+    ordered_cols = [col for col in ordered_cols if col in display_df.columns]
+    display_df = display_df[ordered_cols]
+
+    rename_map = {
+        "target_scenario": "Market scenario",
+        "rank_in_regime": "Rank",
+        "player_name": "Name",
+        "score": "Score",
+        "ticker": "Ticker",
+        "contracts": "Contracts",
+        "delta": "Delta target",
+        "dte": "DTE",
+        "risk_tier": "Setup style",
+        "time": "Recorded",
+        "average_relative_result": "Average result versus simply holding the stock",
+        "worst_relative_result": "Worst relative result",
+    }
+    display_df = display_df.rename(columns=rename_map)
+
+    for col in ["Score", "Average result versus simply holding the stock", "Worst relative result"]:
+        if col in display_df.columns:
+            display_df[col] = display_df[col].map(lambda value: signed_currency(value) if pd.notna(value) else "N/A")
+    if "Delta target" in display_df.columns:
+        display_df["Delta target"] = display_df["Delta target"].map(lambda value: f"{value:.2f}" if pd.notna(value) else "N/A")
+    return display_df
+
+
+def _render_challenge_run_controls(config: dict[str, Any]) -> None:
+    """Render a compact challenge-specific setup-and-run panel."""
+    st.markdown("### Setup and run from this page")
+    st.caption(
+        "Use these controls to try a covered-call setup for the challenge without leaving this tab. "
+        "After the run completes, choose a regime below and record the score."
+    )
+
+    with st.expander("Edit challenge setup", expanded=True):
+        input_col1, input_col2, input_col3 = st.columns(3)
+        with input_col1:
+            ticker = st.text_input(
+                "Ticker",
+                value=str(config.get("ticker", "SPY")).upper(),
+                key="challenge_run_ticker",
+            ).upper()
+            account_size = st.number_input(
+                "Account size ($)",
+                min_value=0.0,
+                value=float(config.get("account_size", 600000.0)),
+                step=1000.0,
+                key="challenge_run_account_size",
+            )
+        with input_col2:
+            desired_contracts = st.number_input(
+                "Contracts",
+                min_value=1,
+                value=int(config.get("desired_contracts", 1)),
+                step=1,
+                key="challenge_run_contracts",
+            )
+            target_delta = st.number_input(
+                "Call delta target",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(config.get("target_delta", 0.30)),
+                step=0.01,
+                format="%.2f",
+                key="challenge_run_delta",
+            )
+        with input_col3:
+            target_dte = st.number_input(
+                "Days to expiration",
+                min_value=1,
+                value=int(config.get("target_dte", 30)),
+                step=1,
+                key="challenge_run_dte",
+            )
+            demo_price = st.number_input(
+                "Stock price",
+                min_value=0.0,
+                value=float(config.get("demo_price", 545.25)),
+                step=1.0,
+                key="challenge_run_demo_price",
+            )
+
+        tier_options = ["Conservative", "Balanced", "Aggressive"]
+        current_tier = str(config.get("risk_tier", "Balanced"))
+        if current_tier not in tier_options:
+            current_tier = "Balanced"
+
+        run_col1, run_col2 = st.columns(2)
+        with run_col1:
+            risk_tier = st.selectbox(
+                "Setup style",
+                tier_options,
+                index=tier_options.index(current_tier),
+                key="challenge_run_risk_tier",
+            )
+        with run_col2:
+            position_size_cap = st.number_input(
+                "Max position size",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(config.get("position_size_cap", 0.10)),
+                step=0.01,
+                format="%.2f",
+                key="challenge_run_position_cap",
+            )
+
+        _render_position_size_explainer(account_size, demo_price, position_size_cap)
+
+        run_config = {
+            "ticker": ticker,
+            "account_size": account_size,
+            "risk_tier": risk_tier,
+            "position_size_cap": position_size_cap,
+            "desired_contracts": int(desired_contracts),
+            "target_delta": float(target_delta),
+            "target_dte": int(target_dte),
+            "management_rule": str(config.get("management_rule", "hold_to_expiration")),
+            "rolling_rule": str(config.get("rolling_rule", "none")),
+            "re_entry_rule": str(config.get("re_entry_rule", "immediate")),
+            "transaction_cost": float(config.get("transaction_cost", 1.0)),
+            "slippage_assumption": float(config.get("slippage_assumption", 0.01)),
+            "demo_price": float(demo_price),
+        }
+
+        errors, warnings, max_contracts = validate_config(run_config)
+        metric_col1, metric_col2, metric_col3 = st.columns(3)
+        metric_col1.metric("Estimated max contracts", max_contracts)
+        metric_col2.metric("Selected contracts", int(desired_contracts))
+        metric_col3.metric("Max position size", f"{position_size_cap:.2%}")
+
+        if errors:
+            for error in errors:
+                st.error(error)
+        else:
+            st.success("This challenge setup passes the sizing rule.")
+        for warning in warnings:
+            st.warning(warning)
+
+        button_col1, button_col2 = st.columns(2)
+        with button_col1:
+            if st.button("Run this setup for challenge", type="primary", disabled=bool(errors), key="challenge_run_this_setup"):
+                save_config(run_config)
+                code, output = run_python_script(RUNNER_PATH)
+                st.session_state["latest_challenge_run_output"] = output
+                if code == 0:
+                    df_after = load_scenario_results()
+                    if df_after is not None:
+                        append_run_history(run_config, summarize_results(df_after))
+                    st.session_state["dashboard_notice"] = "Challenge setup run completed. Choose a target market scenario below and record the score."
+                    st.session_state["dashboard_notice_level"] = "success"
+                    st.success("Challenge setup run completed. Choose a target market scenario below and record the score on this page.")
+                else:
+                    st.error(f"Challenge setup run failed with return code {code}.")
+                    with st.expander("Simulator output", expanded=True):
+                        st.text_area("Simulator output text", value=output, height=220, label_visibility="collapsed")
+        with button_col2:
+            if st.button("Reset and run clean SPY demo", key="challenge_reset_and_run_clean_demo"):
+                ok, message = reset_to_clean_demo(run_after_reset=True)
+                st.session_state["dashboard_notice"] = message
+                st.session_state["dashboard_notice_level"] = "success" if ok else "warning"
+                if ok:
+                    st.success("Clean SPY demo run completed. Choose a target market scenario below and record the score on this page.")
+                else:
+                    st.warning(message)
+
+        latest_output = st.session_state.get("latest_challenge_run_output")
+        if latest_output:
+            with st.expander("Latest challenge run output", expanded=False):
+                st.text_area("Output", value=str(latest_output), height=180, label_visibility="collapsed")
+
+
+def show_covered_call_challenge(config: dict[str, Any]) -> None:
+    """Render a beta game mode for comparing covered-call scores by scenario."""
+    st.subheader("Covered Call Challenge")
+    st.caption(
+        "A beta learning mode: choose a market regime, adjust the covered-call setup, rerun the stress test, "
+        "and record a score under a name of your choice."
+    )
+
+    st.info(
+        "Challenge goal: try to find a covered-call setup that scores well for a chosen named scenario. "
+        "The score is the covered-call result minus buy-and-hold for that scenario. Higher is better."
+    )
+
+    st.markdown("### How to play")
+    play_col1, play_col2, play_col3 = st.columns(3)
+    with play_col1:
+        st.markdown(
+            """
+            **1. Choose a target scenario**  
+            Pick the market path you want to optimize for.
+            """
+        )
+    with play_col2:
+        st.markdown(
+            """
+            **2. Change the setup**  
+            Use the setup controls on this page, or use **Setup & run** for the full input panel.
+            """
+        )
+    with play_col3:
+        st.markdown(
+            """
+            **3. Run and record**  
+            Run the setup, enter a name or nickname, and save the score to the leaderboard.
+            """
+        )
+
+    _render_challenge_run_controls(config)
+    # Reload config after the challenge-run controls because those controls may
+    # save and run a new setup without leaving the Challenge tab.
+    config = load_config()
+
+    df = load_scenario_results()
+    if df is None or df.empty:
+        st.warning("No stress-test results are available yet. Use the setup-and-run controls above to create a challenge score.")
+        return
+
+    summary = summarize_results(df)
+    scenario_col = summary.get("scenario_col") or detect_scenario_column(df)
+    relative_col = summary.get("relative_col")
+
+    if not relative_col:
+        st.error("The challenge cannot score this run because the relative-result column was not detected.")
+        with st.expander("Raw results", expanded=False):
+            st.dataframe(df, width="stretch")
+        return
+
+    if scenario_col and scenario_col in df.columns:
+        scenarios = [str(value) for value in df[scenario_col].dropna().astype(str).tolist()]
+    else:
+        scenarios = [f"Scenario {i + 1}" for i in range(len(df))]
+
+    if not scenarios:
+        st.error("No named scenarios were found in the latest result table.")
+        return
+
+    st.markdown("### Current challenge")
+    target_scenario = st.selectbox("Target market regime", scenarios, key="challenge_target_scenario")
+    player_name = _clean_challenge_player_name(
+        st.text_input(
+            "Name for the leaderboard",
+            value=st.session_state.get("challenge_player_name", "Beta tester"),
+            help="Use a nickname or initials. Do not enter sensitive personal information.",
+            key="challenge_player_name",
+        )
+    )
+
+    score, score_row, _ = _get_challenge_score_row(df, summary, target_scenario)
+
+    cfg = _challenge_config_snapshot(config)
+    contracts = cfg["contracts"]
+    shares_controlled = contracts * 100
+
+    score_col1, score_col2, score_col3, score_col4 = st.columns(4)
+    score_col1.metric("Target scenario", target_scenario)
+    score_col2.metric("Current score", signed_currency(score) if score is not None else "N/A")
+    score_col3.metric("Contracts", contracts)
+    score_col4.metric("Shares controlled", shares_controlled)
+
+    st.caption(
+        "Score = covered-call result minus buy-and-hold for the selected regime. "
+        "A positive score means the covered call beat buy-and-hold in that scenario; a negative score means it lagged."
+    )
+
+    setup_col1, setup_col2, setup_col3, setup_col4 = st.columns(4)
+    setup_col1.metric("Ticker", cfg["ticker"])
+    setup_col2.metric("Delta target", f"{cfg['delta']:.2f}")
+    setup_col3.metric("DTE", cfg["dte"])
+    setup_col4.metric("Setup style", cfg["risk_tier"])
+
+    if score is not None:
+        if score >= 0:
+            st.success("This setup beat buy-and-hold for the selected regime.")
+        else:
+            st.warning("This setup lagged buy-and-hold for the selected regime. Try changing the inputs and running again.")
+
+    st.markdown("### Market scenario scoreboards")
+    st.caption(
+        "Scores are ranked highest to lowest within each market scenario for this browser session. "
+        "A future version can store a shared public leaderboard using a database."
+    )
+
+    if "challenge_leaderboard" not in st.session_state:
+        st.session_state["challenge_leaderboard"] = []
+
+    button_col1, button_col2 = st.columns([1, 1])
+    with button_col1:
+        if st.button("Record current score", type="primary", disabled=score is None):
+            entry = {
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "player_name": player_name,
+                "target_scenario": target_scenario,
+                "score": float(score) if score is not None else None,
+                "ticker": cfg["ticker"],
+                "contracts": cfg["contracts"],
+                "delta": cfg["delta"],
+                "dte": cfg["dte"],
+                "risk_tier": cfg["risk_tier"],
+                "stock_price": cfg["stock_price"],
+                "position_cap": cfg["position_cap"],
+                "average_relative_result": float(summary.get("average_value", 0)) if summary.get("average_value") is not None else None,
+                "worst_relative_result": float(summary.get("worst_value", 0)) if summary.get("worst_value") is not None else None,
+            }
+            st.session_state["challenge_leaderboard"].append(entry)
+            st.success(f"Score recorded for {player_name} in {target_scenario}.")
+    with button_col2:
+        if st.button("Clear session scoreboards"):
+            st.session_state["challenge_leaderboard"] = []
+            st.info("Challenge scoreboards cleared.")
+
+    leaderboard = st.session_state.get("challenge_leaderboard", [])
+    if leaderboard:
+        board_df = pd.DataFrame(leaderboard)
+        board_df["score"] = pd.to_numeric(board_df["score"], errors="coerce")
+
+        summary_rows = []
+        for scenario in scenarios:
+            scenario_df = board_df.loc[board_df["target_scenario"] == scenario].copy()
+            scenario_df = scenario_df.sort_values("score", ascending=False, na_position="last")
+            best_score = scenario_df["score"].iloc[0] if not scenario_df.empty else None
+            best_name = scenario_df["player_name"].iloc[0] if not scenario_df.empty else "No score yet"
+            summary_rows.append(
+                {
+                    "Market scenario": scenario,
+                    "Attempts": int(len(scenario_df)),
+                    "Best name": best_name,
+                    "Best score": signed_currency(best_score) if best_score is not None and pd.notna(best_score) else "N/A",
+                }
+            )
+        st.markdown("#### Scoreboard summary by regime")
+        st.dataframe(pd.DataFrame(summary_rows), width="stretch", hide_index=True)
+
+        selected_board = st.selectbox("View ranked scores for market scenario", ["All regimes"] + scenarios, key="challenge_board_filter")
+        if selected_board == "All regimes":
+            ranked_df = board_df.copy()
+        else:
+            ranked_df = board_df.loc[board_df["target_scenario"] == selected_board].copy()
+        ranked_df = ranked_df.sort_values(["target_scenario", "score"], ascending=[True, False], na_position="last")
+        display_df = _format_challenge_board(ranked_df)
+        st.dataframe(display_df, width="stretch", hide_index=True)
+
+        download_df = board_df.sort_values(["target_scenario", "score"], ascending=[True, False], na_position="last")
+        st.download_button(
+            "Download scoreboards CSV",
+            data=download_df.to_csv(index=False),
+            file_name="covered_call_challenge_scoreboards.csv",
+            mime="text/csv",
+        )
+    else:
+        st.info("No scores recorded yet. Enter a name and record a score after running a setup.")
+
+    st.markdown("### Important limitation")
+    st.warning(
+        "This is a beta learning game, not an optimizer or trade recommendation. Optimizing for one named scenario may make the setup worse in another scenario. "
+        "The current beta evaluates one covered-call setup over one option cycle and does not roll ITM calls. "
+        "The leaderboard is currently stored only in this browser session; a shared public leaderboard would require a database or other persistent storage."
+    )
+
+    with st.expander("Raw result row for selected scenario", expanded=False):
+        if score_row is not None:
+            st.dataframe(pd.DataFrame([score_row]), width="stretch")
+        else:
+            st.write("No matching row found for the selected scenario.")
+
 def show_run_history() -> None:
     st.subheader("Run history")
     if not RUN_HISTORY_PATH.exists():
@@ -1511,7 +2148,7 @@ def run_selected_preset_comparison(selected_presets: list[str]) -> None:
     for i, preset_name in enumerate(selected_presets, start=1):
         config = PRESETS[preset_name].copy()
         save_config(config)
-        code, output = run_python_script(RUNNER_PATH)
+        code, output = run_python_script(RUNNER_PATH, {"COVERED_CALL_SIMULATOR_SUPPRESS_REPORT_OPEN": "1"})
         df = load_scenario_results()
         summary = summarize_results(df) if df is not None else {}
         rows.append(
@@ -1547,11 +2184,18 @@ def run_selected_preset_comparison(selected_presets: list[str]) -> None:
 
 
 def show_preset_comparison() -> None:
-    st.subheader("Preset comparison")
-    st.caption("Compare several preset configurations on the same modeled market paths.")
+    st.subheader("Compare preset examples")
 
-    selected = st.multiselect("Presets to compare", list(PRESETS.keys()), default=list(PRESETS.keys()))
-    if st.button("Run selected preset comparison"):
+    st.info(
+        "This page compares several ready-made covered-call examples using the same named market examples. "
+        "It helps show how changing the covered-call style changes the result. "
+        "This is not a trade recommendation; it simply shows which preset did better or worse in this test batch."
+    )
+
+    st.caption("Compare several ready-made covered-call examples using the same named market examples.")
+
+    selected = st.multiselect("Ready-made examples to compare", list(PRESETS.keys()), default=list(PRESETS.keys()))
+    if st.button("Compare selected examples"):
         if not selected:
             st.warning("Select at least one preset.")
         else:
@@ -1581,28 +2225,28 @@ def show_preset_comparison() -> None:
         worst_value = values.loc[worst_idx]
 
         st.success(
-            "Recommended preset: "
-            f"{best_preset}. Reason: it had the best average relative result "
-            f"({signed_currency(best_value)}) across the latest preset-comparison batch."
+            "Held up best in this test batch: "
+            f"{best_preset}. It held up best because it fell behind simply holding the stock "
+            f"by the smallest amount in this batch ({signed_currency(best_value)})."
         )
 
         col1, col2, col3 = st.columns(3)
-        col1.metric("Presets in latest batch", len(latest))
-        col2.metric("Best preset", best_preset, signed_currency(best_value))
-        col3.metric("Worst preset", worst_preset, signed_currency(worst_value))
+        col1.metric("Examples in latest batch", len(latest))
+        col2.metric("Held up best", best_preset, signed_currency(best_value))
+        col3.metric("Fell behind most", worst_preset, signed_currency(worst_value))
 
         chart_df = latest[[preset_col, avg_col]].copy()
         chart_df[avg_col] = pd.to_numeric(chart_df[avg_col], errors="coerce")
         ranked = chart_df.sort_values(avg_col, ascending=False).copy()
         ranked_display = ranked.copy()
         ranked_display[avg_col] = ranked_display[avg_col].map(signed_currency)
-        ranked_display = ranked_display.rename(columns={preset_col: "Preset", avg_col: "Average relative result"})
+        ranked_display = ranked_display.rename(columns={preset_col: "Preset", avg_col: "Average result versus simply holding the stock"})
 
-        st.markdown("**Ranked preset table**")
+        st.markdown("**Ranked examples table**")
         st.dataframe(ranked_display, width="stretch", hide_index=True)
 
         with st.expander("Preset comparison chart", expanded=False):
-            st.caption("Average relative result by preset. Higher is better, even if all values are negative.")
+            st.caption("Average result versus simply holding the stock by preset. Higher is better, even if all values are negative.")
             chart_rendered = compact_horizontal_bar_chart(
                 ranked,
                 preset_col,
@@ -1661,9 +2305,53 @@ def show_current_beta_run_explainer(config: dict[str, Any], df: pd.DataFrame | N
         f"""
         - The demo uses **{ticker}**, about **{delta:.2f} target call delta**, and **{dte} days to expiration**.
         - The same covered-call setup is run once through each named scenario: downtrend, sideways/choppy, volatile, moderate uptrend, and strong rally.
+        - Each named scenario represents **one option cycle** for that setup. The current beta does **not** write repeated new covered calls during the scenario.
+        - If the short call finishes in the money, the scenario reflects the capped-upside/assignment-style payoff rather than an automatic roll into a new call.
         - The scenario-path graphic is a **conceptual illustration** of those path shapes, not a collection of random Monte Carlo trials.
         - A future Monte Carlo mode should show the number of random paths, percentile outcomes, probability of beating buy-and-hold, and a distribution chart.
         """
+    )
+
+
+def show_beta_purpose_and_roadmap_panel() -> None:
+    """Show the beta landing-page purpose and future direction in customer-friendly language."""
+    st.markdown(
+        """
+        <div class="beta-hero-panel">
+            <div class="beta-hero-kicker">Covered-call scenario stress test</div>
+            <div class="beta-hero-title">See the covered-call tradeoff before you write the call.</div>
+            <p class="beta-hero-body">
+                This beta lets a user set up a covered call and test that same position across several deliberately different market scenarios.
+                The goal is not to predict the market. The goal is to show where the covered call helps, where it lags, and how it compares
+                with simply holding the stock or ETF.
+            </p>
+        </div>
+        <div class="beta-card-grid">
+            <div class="beta-card">
+                <div class="beta-card-title">What it does now</div>
+                <p class="beta-card-text">
+                    Tests one covered-call setup over one option cycle across five named scenarios: downtrend, sideways choppy,
+                    moderate uptrend, volatile two-sided, and strong rally.
+                </p>
+            </div>
+            <div class="beta-card">
+                <div class="beta-card-title">Why it matters</div>
+                <p class="beta-card-text">
+                    Covered calls can provide premium income and downside cushion, but they can also give up upside in a strong rally.
+                    The app makes that tradeoff visible before money is at risk.
+                </p>
+            </div>
+            <div class="beta-card">
+                <div class="beta-card-title">Where this is going</div>
+                <ul class="beta-future-list">
+                    <li>Monte Carlo mode with many randomized paths.</li>
+                    <li>Animated ticker-style covered-call evolution.</li>
+                    <li>Clearer assignment, ITM, and roll-decision guidance.</li>
+                </ul>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -1674,6 +2362,12 @@ def show_stress_test_explainer_panel() -> None:
         "This beta tests one covered-call setup across several deliberately different market-path scenarios. "
         "It is not predicting which path will occur. It is asking what would happen to the same covered call "
         "if the market went down, moved sideways, became choppy, rose moderately, or rallied strongly."
+    )
+
+    st.warning(
+        "For the current beta, each scenario represents one covered-call position over one option cycle. "
+        "For example, 1 contract means 100 shares plus 1 short call. The app does not currently write repeated "
+        "new calls during the scenario, and it does not roll the call when it goes in the money."
     )
 
     left_col, right_col = st.columns([1.05, 1])
@@ -1708,21 +2402,35 @@ def show_stress_test_explainer_panel() -> None:
 def show_start_here_beta_tester_box() -> None:
     """Show a short first-run guide directly inside the customer-facing app."""
     st.markdown("### Start here for first-time beta testers")
-    st.info(
-        "Run the clean SPY demo first. Do not change any inputs until you have seen the default walkthrough."
+    st.warning(
+        "Do this first: run the clean SPY demo. Do not change any inputs until you have seen the default walkthrough."
     )
+
+    button_col, note_col = st.columns([0.45, 0.55])
+    with button_col:
+        if st.button("Run clean SPY demo now", type="primary", key="overview_run_clean_demo_now"):
+            ok, message = reset_to_clean_demo(run_after_reset=True)
+            st.session_state["dashboard_notice"] = message
+            st.session_state["dashboard_notice_level"] = "success" if ok else "warning"
+            st.rerun()
+    with note_col:
+        st.caption(
+            "This uses SPY, one covered call, and five named market scenarios so every beta tester starts from the same example."
+        )
+
     step_col, purpose_col = st.columns([1.15, 1])
     with step_col:
         st.markdown(
             """
-            **First run checklist**
+            **First 5-minute walkthrough**
 
-            1. In the left sidebar, click **Reset and run clean demo**.
+            1. Click **Run clean SPY demo now** above, or use **Reset and run clean demo** in the left sidebar.
             2. Stay on **Overview** and scroll to **Visual summary**.
-            3. Look at the scenario tradeoff chart and payoff concept chart.
-            4. Open **Latest results** for the detailed interpretation.
-            5. Open **Report** to see the printable summary.
-            6. Open **Help & assumptions** to review what the simulator does and does not claim.
+            3. Look at the **scenario tradeoff chart**.
+            4. Look at the **covered-call payoff concept** chart.
+            5. Open **Latest results** for the detailed interpretation.
+            6. Open **Report** to see the printable summary.
+            7. Open **Help & assumptions** to review what the simulator does and does not claim.
             """
         )
     with purpose_col:
@@ -1730,13 +2438,14 @@ def show_start_here_beta_tester_box() -> None:
             """
             **What you are testing**
 
-            The first test asks whether the app clearly shows the covered-call tradeoff: option premium can cushion flat or declining markets, while the short call can limit upside in a strong rally.
+            Can a first-time user understand the covered-call tradeoff quickly?
 
-            Current beta note: this first walkthrough uses named scenario paths. It is not yet showing a Monte Carlo distribution of many random trials.
+            The clean demo should make one point clear: option premium can cushion flat, choppy, or declining markets, while the short call can limit upside in a strong rally.
 
             After the walkthrough, note what was clear, what was confusing, and what feature you expected but did not see.
             """
         )
+
 
 
 def show_overview_dashboard(config: dict[str, Any], errors: list[str], warnings: list[str]) -> None:
@@ -1753,6 +2462,8 @@ def show_overview_dashboard(config: dict[str, Any], errors: list[str], warnings:
     st.markdown(f"**{PRODUCT_INFO.version_label}**  ")
     st.caption(f"{PRODUCT_INFO.release_stage} | {PRODUCT_INFO.build_label}")
     st.info(PRODUCT_INFO.positioning_statement)
+
+    show_beta_purpose_and_roadmap_panel()
 
     show_start_here_beta_tester_box()
 
@@ -1963,8 +2674,104 @@ def show_phase2_scaffold_tab() -> None:
             """
         )
 
+# === PUBLIC BETA REPORT NEXT STEPS PATCH START ===
+PUBLIC_BETA_REPORT_NEXT_STEPS_PATCH_READY = "PUBLIC_BETA_REPORT_NEXT_STEPS_PATCH_READY"
+
+
+def _public_beta_report_next_steps_html() -> str:
+    """Return the beta-tester next-step card for generated HTML reports."""
+    return """
+    <!-- PUBLIC_BETA_REPORT_NEXT_STEPS_START -->
+    <section class="card public-beta-next-steps" style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;padding:20px;margin:22px 0;">
+      <h2 style="margin-top:0;">What to do next</h2>
+      <p>
+        This report shows how the current covered-call setup behaved across the named stress-test scenarios.
+        After reviewing the report, return to the app and continue with the steps below.
+      </p>
+      <ol>
+        <li><strong>Open Challenge.</strong> Pick a target market scenario and try to improve the score.</li>
+        <li><strong>Change one setup input at a time.</strong> Try call delta, DTE, setup style, or contract count.</li>
+        <li><strong>Run the stress test again.</strong> Compare whether the new setup helped or hurt versus buy-and-hold.</li>
+        <li><strong>Review Help &amp; assumptions.</strong> Confirm the current beta assumption: one option cycle, no automatic rolls, and no market prediction.</li>
+        <li><strong>Send feedback.</strong> What was clear, what was confusing, and what feature did you expect but did not see?</li>
+      </ol>
+      <p style="margin-bottom:0;">
+        Beta note: this is a named-scenario stress test. A later version may add Monte Carlo simulation, animated ticker-style covered-call evolution, and persistent leaderboards.
+      </p>
+    </section>
+    <!-- PUBLIC_BETA_REPORT_NEXT_STEPS_END -->
+    """
+
+
+def ensure_public_beta_next_steps_in_report(report_path=REPORT_PATH) -> None:
+    """Inject the beta-tester next-step card into the generated HTML report."""
+    try:
+        path = Path(report_path)
+    except Exception:
+        return
+
+    if not path.exists():
+        return
+
+    try:
+        html = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return
+
+    if "PUBLIC_BETA_REPORT_NEXT_STEPS_START" in html:
+        return
+
+    block = _public_beta_report_next_steps_html()
+
+    anchors = [
+        "<h2>Covered-Call Profile",
+        "<h2>Strategy Setup",
+        "Covered-Call Profile",
+        "Strategy Setup",
+        "</main>",
+        "</body>",
+    ]
+
+    for anchor in anchors:
+        idx = html.find(anchor)
+        if idx != -1:
+            html = html[:idx] + block + "\n" + html[idx:]
+            break
+    else:
+        html = html + "\n" + block + "\n"
+
+    try:
+        path.write_text(html, encoding="utf-8")
+    except Exception:
+        return
+
+
+def render_public_beta_report_next_steps_panel() -> None:
+    """Render next-step guidance on the Streamlit Report tab."""
+    st.markdown("### What to do next")
+    st.info(
+        "After reviewing this report, open Challenge, pick a target market scenario, "
+        "change one setup input at a time, rerun the stress test, and record the score. "
+        "Then review Help & assumptions and send feedback on what was clear, confusing, or missing."
+    )
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        st.markdown("**1. Try Challenge**")
+        st.caption("Use the scoreboards to compare covered-call setups by market scenario.")
+    with col_b:
+        st.markdown("**2. Change one input**")
+        st.caption("Try delta, DTE, setup style, or contract count. Then rerun.")
+    with col_c:
+        st.markdown("**3. Send feedback**")
+        st.caption("Tell us what was clear, confusing, or missing.")
+# === PUBLIC BETA REPORT NEXT STEPS PATCH END ===
+
+
 def show_report_section() -> None:
     st.subheader("Report")
+    render_public_beta_report_next_steps_panel()
+    # Report next-step guidance is generated by scenario_comparison_report.py.
+    # Do not inject a second HTML block from the dashboard.
     if REPORT_PATH.exists():
         st.success("HTML report found.")
         st.code(str(REPORT_PATH))
@@ -2013,9 +2820,11 @@ def show_help_section() -> None:
 
         **Account size ($)** — The account value used to estimate position-size limits.
 
-        **Max position size** — The maximum percentage of the account allowed in the covered-call stock position.
+        **Setup style** — The aggressiveness of the covered-call setup: Conservative, Balanced, or Aggressive. This is not a market scenario.
 
-        **Contracts** — The number of covered-call contracts requested. One contract generally represents 100 shares.
+        **Max position size** — The maximum percentage of the account allowed in the stock/ETF shares needed for covered calls. For example, a $600,000 account with a 10% cap allows about $60,000 of stock exposure. If SPY is near $600/share, that supports about 100 shares, or one standard covered-call contract.
+
+        **Contracts** — The number of covered-call contracts requested. One standard contract generally represents 100 shares.
 
         **Call delta target** — Approximate option delta used to select the short call. Lower delta usually means less premium
         and less upside cap. Higher delta usually means more premium and more upside cap.
@@ -2033,11 +2842,23 @@ def show_help_section() -> None:
 
         **Worst relative result** — The market path where the covered call lagged buy-and-hold the most.
 
-        **Average relative result** — The average relative result across all modeled paths. This is not a forecast; it is a
+        **Average result versus simply holding the stock** — The average relative result across all modeled paths. This is not a forecast; it is a
         summary of the selected scenario set.
 
         **Decision guidance** — A rule-based interpretation of the scenario results and configuration checks.
+
+        **Challenge score** — Covered-call result minus buy-and-hold result for the selected market scenario. Higher is better for that scenario.
         """)
+
+    with st.expander("Current beta assumption: one option cycle, no automatic rolls", expanded=True):
+        st.markdown(
+            """
+            The current beta evaluates one covered-call setup over one option cycle across named market scenarios.
+
+            It does **not** write repeated new covered calls during a scenario, and it does **not** automatically roll the short call when it goes in the money.
+            """
+        )
+        _render_itm_no_roll_explainer()
 
     with st.expander("How to use the control panel", expanded=True):
         st.markdown("""
@@ -2229,7 +3050,7 @@ def show_phase2b_premium_model_tab() -> None:
         )
         if relative_col is not None:
             metric_col1, metric_col2, metric_col3 = st.columns(3)
-            metric_col1.metric("Average relative result", signed_currency(float(payoff_df[relative_col].mean())))
+            metric_col1.metric("Average result versus simply holding the stock", signed_currency(float(payoff_df[relative_col].mean())))
             metric_col2.metric("Best relative result", signed_currency(float(payoff_df[relative_col].max())))
             metric_col3.metric("Worst relative result", signed_currency(float(payoff_df[relative_col].min())))
             chart_df = payoff_df.copy()
@@ -2400,7 +3221,7 @@ def show_phase2c_validation_tab() -> None:
         if relative_col is not None:
             metric_col1, metric_col2, metric_col3 = st.columns(3)
             numeric_relative = pd.to_numeric(payoff_df[relative_col], errors="coerce")
-            metric_col1.metric("Average relative result", signed_currency(float(numeric_relative.mean())))
+            metric_col1.metric("Average result versus simply holding the stock", signed_currency(float(numeric_relative.mean())))
             metric_col2.metric("Best relative result", signed_currency(float(numeric_relative.max())))
             metric_col3.metric("Worst relative result", signed_currency(float(numeric_relative.min())))
             label_col = find_column(payoff_df, ["scenario", "scenario_name", "display_name", "path_label"])
@@ -3725,7 +4546,7 @@ def show_phase3d_integrated_overlay_tab() -> None:
                     metric_col2.metric("Columns", len(snapshot_df.columns))
                 if "covered_call_minus_buy_hold" in snapshot_df.columns:
                     metric_col3.metric(
-                        "Average relative result",
+                        "Average result versus simply holding the stock",
                         signed_currency(float(snapshot_df["covered_call_minus_buy_hold"].mean())),
                     )
                 else:
@@ -3878,6 +4699,7 @@ def main() -> None:
             "Overview",
             "Setup & run",
             "Latest results",
+            "Challenge",
             "Run history",
             "Preset comparison",
             "Report",
@@ -3901,6 +4723,7 @@ def main() -> None:
             "Overview",
             "Setup & run",
             "Latest results",
+            "Challenge",
             "Preset comparison",
             "Report",
             "Help & assumptions",
@@ -3925,13 +4748,19 @@ def main() -> None:
                 ok, message = reset_to_clean_demo(run_after_reset=False)
                 st.session_state["dashboard_notice"] = message
                 st.session_state["dashboard_notice_level"] = "success" if ok else "warning"
-                st.rerun()
+                if ok:
+                    st.success("Clean SPY demo run completed. Choose a target market scenario below and record the score on this page.")
+                else:
+                    st.warning(message)
         with demo_col2:
             if st.button("Reset and run demo", key="setup_reset_and_run_demo"):
                 ok, message = reset_to_clean_demo(run_after_reset=True)
                 st.session_state["dashboard_notice"] = message
                 st.session_state["dashboard_notice_level"] = "success" if ok else "warning"
-                st.rerun()
+                if ok:
+                    st.success("Clean SPY demo run completed. Choose a target market scenario below and record the score on this page.")
+                else:
+                    st.warning(message)
 
         st.subheader("Preset configurations")
         preset_col, button_col = st.columns([4, 1])
@@ -3951,7 +4780,7 @@ def main() -> None:
             ticker = st.text_input("Ticker", value=str(config.get("ticker", "SPY"))).upper()
             account_size = st.number_input("Account size ($)", min_value=0.0, value=float(config.get("account_size", 600000.0)), step=1000.0)
             risk_tier = st.selectbox(
-                "Risk tier",
+                "Setup style",
                 ["Conservative", "Balanced", "Aggressive"],
                 index=["Conservative", "Balanced", "Aggressive"].index(str(config.get("risk_tier", "Balanced"))) if str(config.get("risk_tier", "Balanced")) in ["Conservative", "Balanced", "Aggressive"] else 1,
             )
@@ -3961,6 +4790,8 @@ def main() -> None:
             target_delta = st.number_input("Call delta target", min_value=0.0, max_value=1.0, value=float(config.get("target_delta", 0.30)), step=0.01, format="%.2f")
             target_dte = st.number_input("Days to expiration", min_value=1, value=int(config.get("target_dte", 30)), step=1)
             demo_price = st.number_input("Stock price", min_value=0.0, value=float(config.get("demo_price", 545.25)), step=1.0)
+
+        _render_position_size_explainer(account_size, demo_price, position_size_cap)
 
         with st.expander("Advanced strategy settings", expanded=False):
             col3, col4, col5 = st.columns(3)
@@ -4051,6 +4882,10 @@ def main() -> None:
 
     with tabs["Latest results"]:
         show_latest_results(current_config_for_results, result_errors, result_warnings)
+
+    if "Challenge" in tabs:
+        with tabs["Challenge"]:
+            show_covered_call_challenge(current_config_for_results)
 
     if "Run history" in tabs:
         with tabs["Run history"]:
