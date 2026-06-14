@@ -1316,7 +1316,7 @@ def build_decision_memo(config: dict[str, Any], summary: dict[str, Any], status:
     lines.append("## Important limitations")
     for limitation in PRODUCT_INFO.key_limitations:
         lines.append(f"- {limitation}")
-    lines.append("- This memo summarizes modeled scenarios from the local paid simulator. It is not investment advice, does not guarantee future returns, and should be interpreted as scenario analysis rather than a forecast.")
+    lines.append("- This memo summarizes modeled scenarios from the public beta stress test. It is not investment advice, does not guarantee future returns, and should be interpreted as scenario analysis rather than a forecast.")
     lines.append("")
     return "\n".join(lines)
 
@@ -1551,7 +1551,7 @@ def show_latest_results(config: dict[str, Any], errors: list[str], warnings: lis
     st.subheader("Latest results summary")
     df = load_scenario_results()
     if df is None:
-        st.info("No scenario comparison CSV found yet. Run the paid simulator first.")
+        st.info("No saved stress-test results found yet. Open Setup & run, then run the stress test.")
         return {}, None, "REVIEW BEFORE USE", ["Run the simulator first."], "No results are available yet."
 
     summary = summarize_results(df)
@@ -2978,7 +2978,7 @@ def show_app_status_tab() -> None:
     if status.overall_status == "PASS":
         st.write("The dashboard is ready for normal use. Use Setup & run to test a configuration, then review Latest results and export a memo if needed.")
     else:
-        st.write("Review the missing files above. If generated outputs are missing, run the paid simulator. If required files are missing, reinstall the latest dashboard files.")
+        st.write("Review the missing files above. If generated outputs are missing, run the stress test. If required files are missing, reinstall the latest dashboard files.")
 
 
 def show_phase2b_premium_file_status() -> None:
@@ -4876,12 +4876,12 @@ def main() -> None:
                 save_config(current_config)
                 code, output = run_python_script(RUNNER_PATH)
                 if code == 0:
-                    st.success("Paid simulator completed. Open the Latest results tab to review the decision summary.")
+                    st.success("Stress test completed. Open the Latest results tab to review the result summary.")
                     df_after = load_scenario_results()
                     if df_after is not None:
                         append_run_history(current_config, summarize_results(df_after))
                 else:
-                    st.error(f"Paid simulator failed with return code {code}.")
+                    st.error(f"Stress test failed with return code {code}.")
                 with st.expander("Simulator output", expanded=False):
                     st.text_area("Simulator output text", value=output, height=220, label_visibility="collapsed")
         with action_col3:
