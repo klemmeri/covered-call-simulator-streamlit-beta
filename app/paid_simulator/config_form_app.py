@@ -8,6 +8,7 @@ facing decision memo.
 
 from __future__ import annotations
 
+import html
 import json
 import os
 import subprocess
@@ -503,6 +504,428 @@ def compact_horizontal_bar_chart(
     return True
 
 
+
+def _scenario_labels(df: pd.DataFrame, scenario_col: str | None) -> pd.Series:
+    """Return customer-readable scenario labels for charting."""
+    if scenario_col and scenario_col in df.columns:
+        return df[scenario_col].astype(str)
+    return pd.Series([f"Scenario {i + 1}" for i in range(len(df))], index=df.index)
+
+
+def show_relative_result_chart(df: pd.DataFrame, summary: dict[str, Any], height: int = 300) -> bool:
+    """Show covered-call minus buy-and-hold by scenario."""
+    relative_col = summary.get("relative_col")
+    scenario_col = summary.get("scenario_col")
+    if df is None or df.empty or not relative_col or relative_col not in df.columns:
+        return False
+
+    chart_df = pd.DataFrame(
+        {
+            "Scenario": _scenario_labels(df, scenario_col),
+            "Relative result ($)": pd.to_numeric(df[relative_col], errors="coerce"),
+        }
+    ).dropna(subset=["Relative result ($)"])
+    if chart_df.empty:
+        return False
+
+    st.caption("Covered-call result minus buy-and-hold. Higher is better; negative values show upside or performance given up.")
+    if alt is not None:
+        chart = (
+            alt.Chart(chart_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Relative result ($):Q", title="Covered call minus buy-and-hold ($)"),
+                y=alt.Y("Scenario:N", sort="-x", title=None),
+                tooltip=[
+                    alt.Tooltip("Scenario:N", title="Scenario"),
+                    alt.Tooltip("Relative result ($):Q", title="Relative result", format=",.2f"),
+                ],
+            )
+            .properties(height=height)
+        )
+        st.altair_chart(chart, width="stretch")
+    else:
+        st.bar_chart(chart_df.set_index("Scenario")[["Relative result ($)"]], height=height)
+    return True
+
+
+def show_outcome_comparison_chart(df: pd.DataFrame, summary: dict[str, Any], height: int = 300) -> bool:
+    """Show covered-call and buy-and-hold scenario outcomes side by side."""
+    covered_col = summary.get("covered_call_col")
+    buy_hold_col = summary.get("buy_hold_col")
+    scenario_col = summary.get("scenario_col")
+    if (
+        df is None
+        or df.empty
+        or not covered_col
+        or not buy_hold_col
+        or covered_col not in df.columns
+        or buy_hold_col not in df.columns
+    ):
+        return False
+
+    chart_df = pd.DataFrame(
+        {
+            "Scenario": _scenario_labels(df, scenario_col),
+            "Covered call": pd.to_numeric(df[covered_col], errors="coerce"),
+            "Buy-and-hold": pd.to_numeric(df[buy_hold_col], errors="coerce"),
+        }
+    ).dropna(subset=["Covered call", "Buy-and-hold"], how="all")
+    if chart_df.empty:
+        return False
+
+    st.caption("Absolute scenario outcomes for the covered-call setup compared with buy-and-hold.")
+    long_df = chart_df.melt(id_vars="Scenario", var_name="Strategy", value_name="Result ($)").dropna()
+    if alt is not None:
+        chart = (
+            alt.Chart(long_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Scenario:N", title=None),
+                y=alt.Y("Result ($):Q", title="Result ($)"),
+                xOffset="Strategy:N",
+                tooltip=[
+                    alt.Tooltip("Scenario:N", title="Scenario"),
+                    alt.Tooltip("Strategy:N", title="Strategy"),
+                    alt.Tooltip("Result ($):Q", title="Result", format=",.2f"),
+                ],
+            )
+            .properties(height=height)
+        )
+        st.altair_chart(chart, width="stretch")
+    else:
+        st.bar_chart(chart_df.set_index("Scenario")[["Covered call", "Buy-and-hold"]], height=height)
+    return True
+
+
+def build_payoff_concept_data(config: dict[str, Any]) -> pd.DataFrame:
+    """Build an illustrative covered-call payoff shape from the current setup."""
+    stock_price = float(config.get("demo_price", DEFAULT_CONFIG["demo_price"]) or DEFAULT_CONFIG["demo_price"])
+    contracts = max(int(config.get("desired_contracts", 1) or 1), 1)
+    shares = contracts * 100
+    target_delta = float(config.get("target_delta", DEFAULT_CONFIG["target_delta"]) or DEFAULT_CONFIG["target_delta"])
+    target_dte = max(float(config.get("target_dte", DEFAULT_CONFIG["target_dte"]) or DEFAULT_CONFIG["target_dte"]), 1.0)
+
+    # This is a customer-facing concept graph, not an option-pricing claim.
+    estimated_otm_fraction = max(0.015, min(0.08, 0.07 - 0.10 * (target_delta - 0.20)))
+    strike = stock_price * (1.0 + estimated_otm_fraction)
+    premium_per_share = stock_price * max(0.004, min(0.035, 0.012 * (target_delta / 0.30) * (target_dte / 30.0) ** 0.5))
+
+    min_price = stock_price * 0.85
+    max_price = stock_price * 1.15
+    if strike > max_price * 0.94:
+        max_price = strike * 1.08
+
+    prices = [min_price + (max_price - min_price) * i / 60 for i in range(61)]
+    rows: list[dict[str, Any]] = []
+    for expiration_price in prices:
+        buy_hold_profit = (expiration_price - stock_price) * shares
+        covered_call_profit = (min(expiration_price, strike) - stock_price + premium_per_share) * shares
+        rows.append(
+            {
+                "Stock price at expiration": expiration_price,
+                "Buy-and-hold": buy_hold_profit,
+                "Covered call": covered_call_profit,
+                "Estimated short-call strike": strike,
+                "Estimated premium per share": premium_per_share,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def show_payoff_concept_chart(config: dict[str, Any], height: int = 300) -> None:
+    """Show a simplified payoff diagram for the selected covered-call setup."""
+    payoff_df = build_payoff_concept_data(config)
+    strike = float(payoff_df["Estimated short-call strike"].iloc[0])
+    premium = float(payoff_df["Estimated premium per share"].iloc[0])
+    long_df = payoff_df.melt(
+        id_vars=["Stock price at expiration"],
+        value_vars=["Covered call", "Buy-and-hold"],
+        var_name="Strategy",
+        value_name="Profit / loss ($)",
+    )
+    st.caption(
+        f"Illustrative payoff concept using an estimated strike near ${strike:,.2f} and estimated premium near ${premium:,.2f} per share. "
+        "This is a teaching graphic, not a live option quote."
+    )
+    if alt is not None:
+        chart = (
+            alt.Chart(long_df)
+            .mark_line()
+            .encode(
+                x=alt.X("Stock price at expiration:Q", title="Stock price at expiration ($)"),
+                y=alt.Y("Profit / loss ($):Q", title="Profit / loss ($)"),
+                tooltip=[
+                    alt.Tooltip("Stock price at expiration:Q", title="Stock price", format=",.2f"),
+                    alt.Tooltip("Strategy:N", title="Strategy"),
+                    alt.Tooltip("Profit / loss ($):Q", title="P/L", format=",.2f"),
+                ],
+            )
+            .properties(height=height)
+        )
+        st.altair_chart(chart, width="stretch")
+    else:
+        st.line_chart(long_df.pivot(index="Stock price at expiration", columns="Strategy", values="Profit / loss ($)"), height=height)
+
+
+
+def _safe_html(value: Any) -> str:
+    """Escape user/data values before inserting them into customer-facing HTML/SVG."""
+    return html.escape(str(value), quote=True)
+
+
+def _svg_polyline_points(points: list[tuple[float, float]]) -> str:
+    return " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
+
+
+def _render_visual_card(title: str, subtitle: str, svg: str) -> None:
+    """Render one lightweight customer chart card without relying on external chart libraries."""
+    st.markdown(
+        f"""
+        <div style="border:1px solid #d9e2ec; border-radius:14px; padding:18px 18px 14px 18px; margin:16px 0; background:#ffffff;">
+            <div style="font-size:1.05rem; font-weight:700; color:#102a43; margin-bottom:4px;">{_safe_html(title)}</div>
+            <div style="font-size:0.88rem; color:#52606d; margin-bottom:12px;">{_safe_html(subtitle)}</div>
+            {svg}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _build_relative_tradeoff_svg(df: pd.DataFrame, summary: dict[str, Any]) -> str | None:
+    """Build an SVG chart for covered-call relative result by scenario."""
+    relative_col = summary.get("relative_col")
+    scenario_col = summary.get("scenario_col")
+    if df is None or df.empty or not relative_col or relative_col not in df.columns:
+        return None
+
+    chart_df = pd.DataFrame(
+        {
+            "Scenario": _scenario_labels(df, scenario_col),
+            "Relative result ($)": pd.to_numeric(df[relative_col], errors="coerce"),
+        }
+    ).dropna(subset=["Relative result ($)"])
+    if chart_df.empty:
+        return None
+
+    chart_df = chart_df.sort_values("Relative result ($)", ascending=True).reset_index(drop=True)
+    values = chart_df["Relative result ($)"].tolist()
+    max_abs = max(max(abs(v) for v in values), 1.0)
+
+    width = 920
+    left_label_x = 24
+    zero_x = 460
+    right_limit = 760
+    left_limit = 210
+    plot_half_width = min(zero_x - left_limit, right_limit - zero_x)
+    row_height = 54
+    top = 58
+    height = top + row_height * len(chart_df) + 36
+
+    rows = [
+        f'<svg viewBox="0 0 {width} {height}" width="100%" height="auto" role="img" aria-label="Covered call relative result chart">',
+        '<rect x="0" y="0" width="920" height="100%" rx="12" fill="#f8fafc"/>',
+        f'<line x1="{zero_x}" y1="34" x2="{zero_x}" y2="{height-18}" stroke="#9fb3c8" stroke-width="2"/>',
+        f'<text x="{zero_x}" y="24" text-anchor="middle" font-size="13" fill="#486581">Buy-and-hold parity</text>',
+    ]
+
+    for i, row in chart_df.iterrows():
+        label = _safe_html(row["Scenario"])
+        value = float(row["Relative result ($)"])
+        y = top + i * row_height
+        bar_width = max(4.0, abs(value) / max_abs * plot_half_width)
+        if value >= 0:
+            x = zero_x
+            fill = "#2563eb"
+        else:
+            x = zero_x - bar_width
+            fill = "#64748b"
+        rows.append(f'<text x="{left_label_x}" y="{y+16}" font-size="14" font-weight="700" fill="#102a43">{label}</text>')
+        rows.append(f'<rect x="{x:.1f}" y="{y}" width="{bar_width:.1f}" height="20" rx="5" fill="{fill}"/>')
+        rows.append(f'<text x="895" y="{y+16}" text-anchor="end" font-size="14" font-weight="700" fill="#102a43">{_safe_html(signed_currency(value))}</text>')
+
+    rows.append('</svg>')
+    return "".join(rows)
+
+
+def _build_payoff_concept_svg(config: dict[str, Any]) -> str:
+    """Build a simple covered-call payoff curve SVG."""
+    payoff_df = build_payoff_concept_data(config)
+    x_values = payoff_df["Stock price at expiration"].astype(float).tolist()
+    covered_values = payoff_df["Covered call"].astype(float).tolist()
+    buy_hold_values = payoff_df["Buy-and-hold"].astype(float).tolist()
+    strike = float(payoff_df["Estimated short-call strike"].iloc[0])
+    premium = float(payoff_df["Estimated premium per share"].iloc[0])
+
+    width = 920
+    height = 360
+    plot_left = 72
+    plot_right = 850
+    plot_top = 38
+    plot_bottom = 300
+    min_x, max_x = min(x_values), max(x_values)
+    all_y = covered_values + buy_hold_values
+    min_y, max_y = min(all_y), max(all_y)
+    if min_y == max_y:
+        min_y -= 1
+        max_y += 1
+    y_pad = (max_y - min_y) * 0.08
+    min_y -= y_pad
+    max_y += y_pad
+
+    def sx(x: float) -> float:
+        return plot_left + (x - min_x) / (max_x - min_x) * (plot_right - plot_left)
+
+    def sy(y: float) -> float:
+        return plot_bottom - (y - min_y) / (max_y - min_y) * (plot_bottom - plot_top)
+
+    zero_y = sy(0.0)
+    strike_x = sx(strike)
+    covered_points = _svg_polyline_points([(sx(x), sy(y)) for x, y in zip(x_values, covered_values)])
+    buy_hold_points = _svg_polyline_points([(sx(x), sy(y)) for x, y in zip(x_values, buy_hold_values)])
+
+    return f"""
+    <svg viewBox="0 0 {width} {height}" width="100%" height="auto" role="img" aria-label="Covered call payoff concept chart">
+        <rect x="0" y="0" width="920" height="360" rx="12" fill="#f8fafc"/>
+        <line x1="{plot_left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" stroke="#cbd5e1" stroke-width="1"/>
+        <line x1="{plot_left}" y1="{plot_top}" x2="{plot_left}" y2="{plot_bottom}" stroke="#cbd5e1" stroke-width="1"/>
+        <line x1="{plot_left}" y1="{zero_y:.1f}" x2="{plot_right}" y2="{zero_y:.1f}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="{strike_x:.1f}" y1="{plot_top}" x2="{strike_x:.1f}" y2="{plot_bottom}" stroke="#f97316" stroke-width="2" stroke-dasharray="5 5"/>
+        <text x="{strike_x:.1f}" y="26" text-anchor="middle" font-size="13" fill="#9a3412">estimated call strike</text>
+        <polyline points="{buy_hold_points}" fill="none" stroke="#334155" stroke-width="4"/>
+        <polyline points="{covered_points}" fill="none" stroke="#2563eb" stroke-width="4"/>
+        <text x="{plot_left}" y="330" font-size="13" fill="#486581">Lower stock price</text>
+        <text x="{plot_right}" y="330" text-anchor="end" font-size="13" fill="#486581">Higher stock price</text>
+        <text x="18" y="42" font-size="13" fill="#486581" transform="rotate(-90 18,42)">Profit / loss</text>
+        <rect x="610" y="50" width="18" height="5" rx="2" fill="#2563eb"/><text x="636" y="57" font-size="13" fill="#102a43">Covered call</text>
+        <rect x="610" y="74" width="18" height="5" rx="2" fill="#334155"/><text x="636" y="81" font-size="13" fill="#102a43">Buy-and-hold</text>
+        <text x="72" y="24" font-size="13" fill="#52606d">Concept only: estimated premium about {_safe_html(currency(premium))} per share</text>
+    </svg>
+    """
+
+
+def _build_modeled_path_svg(config: dict[str, Any]) -> str:
+    """Build an illustrative scenario price-path SVG."""
+    import math
+
+    start_price = float(config.get("demo_price", DEFAULT_CONFIG["demo_price"]) or DEFAULT_CONFIG["demo_price"])
+    dte = max(10, min(int(config.get("target_dte", DEFAULT_CONFIG["target_dte"]) or DEFAULT_CONFIG["target_dte"]), 60))
+    steps = 30
+    xs = list(range(steps + 1))
+
+    def path_value(kind: str, i: int) -> float:
+        t = i / steps
+        if kind == "Downtrend":
+            return start_price * (1 - 0.09 * t + 0.006 * math.sin(5 * t))
+        if kind == "Sideways Choppy":
+            return start_price * (1 + 0.012 * math.sin(7 * t) - 0.002 * t)
+        if kind == "Moderate Uptrend":
+            return start_price * (1 + 0.055 * t + 0.006 * math.sin(4 * t))
+        if kind == "Volatile Two-Sided":
+            return start_price * (1 + 0.04 * math.sin(8 * t) - 0.015 * t)
+        return start_price * (1 + 0.13 * t + 0.008 * math.sin(5 * t))
+
+    scenarios = [
+        ("Downtrend", "#64748b"),
+        ("Sideways Choppy", "#0f766e"),
+        ("Moderate Uptrend", "#2563eb"),
+        ("Volatile Two-Sided", "#9333ea"),
+        ("Strong Rally", "#dc2626"),
+    ]
+    series = {name: [path_value(name, i) for i in xs] for name, _ in scenarios}
+    all_values = [v for values in series.values() for v in values]
+    min_y, max_y = min(all_values), max(all_values)
+    if min_y == max_y:
+        min_y *= 0.99
+        max_y *= 1.01
+
+    width = 920
+    height = 360
+    plot_left = 72
+    plot_right = 850
+    plot_top = 38
+    plot_bottom = 300
+
+    def sx(i: int) -> float:
+        return plot_left + i / steps * (plot_right - plot_left)
+
+    def sy(y: float) -> float:
+        return plot_bottom - (y - min_y) / (max_y - min_y) * (plot_bottom - plot_top)
+
+    rows = [
+        f'<svg viewBox="0 0 {width} {height}" width="100%" height="auto" role="img" aria-label="Modeled price path concept chart">',
+        '<rect x="0" y="0" width="920" height="360" rx="12" fill="#f8fafc"/>',
+        f'<line x1="{plot_left}" y1="{plot_bottom}" x2="{plot_right}" y2="{plot_bottom}" stroke="#cbd5e1" stroke-width="1"/>',
+        f'<line x1="{plot_left}" y1="{plot_top}" x2="{plot_left}" y2="{plot_bottom}" stroke="#cbd5e1" stroke-width="1"/>',
+        f'<line x1="{plot_left}" y1="{sy(start_price):.1f}" x2="{plot_right}" y2="{sy(start_price):.1f}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>',
+        f'<text x="{plot_left}" y="24" font-size="13" fill="#52606d">Starting price {_safe_html(currency(start_price))}; illustrative {dte}-DTE scenario shapes</text>',
+    ]
+    legend_x = 610
+    legend_y = 48
+    for idx, (name, color) in enumerate(scenarios):
+        pts = _svg_polyline_points([(sx(i), sy(v)) for i, v in enumerate(series[name])])
+        rows.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="3"/>')
+        ly = legend_y + idx * 22
+        rows.append(f'<rect x="{legend_x}" y="{ly}" width="18" height="5" rx="2" fill="{color}"/>')
+        rows.append(f'<text x="{legend_x+26}" y="{ly+7}" font-size="13" fill="#102a43">{_safe_html(name)}</text>')
+    rows.extend(
+        [
+            f'<text x="{plot_left}" y="330" font-size="13" fill="#486581">Start</text>',
+            f'<text x="{plot_right}" y="330" text-anchor="end" font-size="13" fill="#486581">Expiration horizon</text>',
+            '<text x="18" y="42" font-size="13" fill="#486581" transform="rotate(-90 18,42)">Stock price</text>',
+            '</svg>',
+        ]
+    )
+    return "".join(rows)
+
+
+def show_customer_visual_summary(
+    config: dict[str, Any],
+    df: pd.DataFrame | None,
+    summary: dict[str, Any],
+    *,
+    expanded: bool = True,
+) -> None:
+    """Render customer-facing visuals that make the covered-call tradeoff obvious."""
+    st.subheader("Visual summary")
+    st.caption("Three quick graphics: scenario tradeoff, payoff concept, and modeled path shapes.")
+
+    if df is None or df.empty or not summary.get("relative_col"):
+        st.info("Run the simulator to display scenario results. The payoff and path illustrations below are concept graphics based on the current setup.")
+        _render_visual_card(
+            "Covered-call payoff concept",
+            "The short call creates premium income but caps participation above the call strike.",
+            _build_payoff_concept_svg(config),
+        )
+        _render_visual_card(
+            "Modeled market paths concept",
+            "Illustrative path shapes used to explain scenario stress testing. These are not forecasts.",
+            _build_modeled_path_svg(config),
+        )
+        return
+
+    relative_svg = _build_relative_tradeoff_svg(df, summary)
+    if relative_svg:
+        _render_visual_card(
+            "Scenario tradeoff chart",
+            "Covered-call result minus buy-and-hold. Positive values mean the covered call finished ahead; negative values show performance given up.",
+            relative_svg,
+        )
+    else:
+        st.info("The scenario tradeoff chart is unavailable for this output format.")
+
+    _render_visual_card(
+        "Covered-call payoff concept",
+        "The short call creates income and downside cushion, but it also caps the stock's upside above the strike.",
+        _build_payoff_concept_svg(config),
+    )
+
+    _render_visual_card(
+        "Modeled market paths concept",
+        "A visual reminder that the dashboard is testing several market-path scenarios, not predicting which path will occur.",
+        _build_modeled_path_svg(config),
+    )
+
 def estimate_max_contracts(config: dict[str, Any]) -> int:
     account_size = float(config.get("account_size", 0) or 0)
     cap = float(config.get("position_size_cap", 0) or 0)
@@ -966,24 +1389,7 @@ def show_latest_results(config: dict[str, Any], errors: list[str], warnings: lis
     for rec in recommendations:
         st.write(f"- {rec}")
 
-    chart_df = df.copy()
-    chart_df[relative_col] = pd.to_numeric(chart_df[relative_col], errors="coerce")
-    if scenario_col is not None:
-        chart_df["_scenario_label"] = chart_df[scenario_col].astype(str)
-    else:
-        chart_df["_scenario_label"] = [f"Scenario {i + 1}" for i in range(len(chart_df))]
-
-    st.caption("Compact chart: covered-call result relative to buy-and-hold. Higher is better.")
-    chart_rendered = compact_horizontal_bar_chart(
-        chart_df,
-        "_scenario_label",
-        relative_col,
-        title=None,
-        height=280,
-    )
-    if not chart_rendered:
-        fallback_df = chart_df.set_index("_scenario_label")[[relative_col]].dropna()
-        st.bar_chart(fallback_df, height=280)
+    show_customer_visual_summary(config, df, summary, expanded=True)
 
     with st.expander("Raw scenario comparison table", expanded=False):
         st.dataframe(df, width="stretch")
@@ -1221,6 +1627,8 @@ def show_overview_dashboard(config: dict[str, Any], errors: list[str], warnings:
     if df is not None and summary.get("relative_col"):
         status, recommendations = build_decision_guidance(config, summary, errors, warnings)
         interpretation = build_interpretation(summary)
+
+    show_customer_visual_summary(config, df, summary, expanded=True)
 
     status_col, config_col, report_col = st.columns(3)
     with status_col:
@@ -3454,7 +3862,7 @@ def main() -> None:
     with tabs["Overview"]:
         show_overview_dashboard(config, overview_errors, overview_warnings)
         if interface_mode == "Customer view":
-            st.caption("Switch to Developer view in the sidebar to see run history, app status, and maintenance tools.")
+            st.caption("Use the Setup & run tab to test a configuration, then review Latest results and export a memo.")
 
     with tabs["Setup & run"]:
         st.subheader("Customer demo reset")
